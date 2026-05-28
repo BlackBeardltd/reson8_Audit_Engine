@@ -1,0 +1,14 @@
+Issue Type,Summary,Description,Priority,Start Date,Due Date
+Epic,AURA-X Milestone 1: The "Sentinel" Prototype,"Complete verification and baseline testing of deep learning vision pipelines on existing local computing resources, eliminating hardware dependency blocks.",High,2026-06-01,2026-06-28
+Task,YOLO/U-Net Baseline Training,"Machine training loops to hit a baseline accuracy metric of >=85% mAP across custom pipeline crack and slick datasets. Accountable: CV Mastery Boss.",High,2026-06-01,2026-06-28
+Task,Ingestion Performance Test,"Process a test ingestion pipeline of >=5,000 video validation frames on simulation systems with zero frame drops or buffer blocks.",High,2026-06-01,2026-06-28
+Task,Tactical Paradigm Presentation,"Ship a finalized, high-fidelity 1-minute tactical presentation demonstrating the 'Reactive Model vs. AURA-X Autonomous Paradigm'.",Medium,2026-06-01,2026-06-28
+Epic,AURA-X Milestone 2: Edge-AI and Spatial Fusion,"Successful transition of deep models to localized edge-processing nodes and orchestration of wide-area spatial coordinate engines.",High,2026-06-29,2026-07-26
+Task,INT8 Jetson Quantization,"Compress and deploy vision models into INT8 precision layers natively processing on localized physical NVIDIA Jetson Orin Nano development kits.",High,2026-06-29,2026-07-26
+Task,RTSP Live Stream Execution,"Achieve unthrottled, continuous execution rates of >=30 FPS on live raw incoming RTSP camera streams.",High,2026-06-29,2026-07-26
+Task,3D WebGIS Spatial Fusion,"Incorporate wide-area Sentinel-1 SAR imagery automated ingestion layers, aligning anomalies on a 3D WebGIS canvas within <=5 seconds of edge inference.",High,2026-06-29,2026-07-26
+Task,Framework LOI Finalization,"Finalize formal operational Letter of Intent (LOI) framework agreements with our primary asset infrastructure partner.",Medium,2026-06-29,2026-07-26
+Epic,AURA-X Milestone 3: Niger Delta Field Pilot,"Definitive live validation of the autonomous network over an active, high-risk operational industrial corridor.",High,2026-07-27,2026-08-23
+Task,Autonomous Drone Patrol Deployment,"Deploy automated, pre-programmed drone patrol routines spanning a continuous 20km pipeline tracking matrix.",High,2026-07-27,2026-08-23
+Task,Real-time Telemetry Verification,"Maintain an absolute 100% telemetry capture profile, generating real-time coordinate tracking updates to the master interface within <=45 seconds of local physical breach events.",High,2026-07-27,2026-08-23
+Task,Venture Seed-Capital Capitalization,"Leverage live pilot metrics to execute our planned venture seed-capital round, scaling team resource capacity from 6 to 20 core domains.",Medium,2026-07-27,2026-08-23
