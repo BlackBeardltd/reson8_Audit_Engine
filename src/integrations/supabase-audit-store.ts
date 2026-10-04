@@ -130,7 +130,7 @@ export function createSupabaseAuditStore(
       } : {
         audit_job_id: jobId, provider: "audd", matched: false, raw_response: recognition,
       };
-      const { error } = await admin.from("recognition_results").upsert(row, { onConflict: "audit_job_id" });
+      const { error } = await admin.from("recognition_results").upsert(row, { onConflict: "audit_job_id,provider" });
       if (error) throw new Error(`Unable to save recognition: ${error.message}`);
       await event(jobId, "recognition", recognition.matched ? "matched" : "unmatched");
     },
