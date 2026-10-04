@@ -33,7 +33,7 @@ describe("AuddClient", () => {
 
     const form = init.body as FormData;
     expect(form.get("api_token")).toBe("token-123");
-    expect(form.get("return")).toBe("apple_music,spotify,musicbrainz");
+    expect(form.get("return")).toBe("apple_music,spotify,deezer,musicbrainz");
     expect(form.get("file")).toBeInstanceOf(Blob);
 
     vi.unstubAllGlobals();
