@@ -1,8 +1,32 @@
 import { describe, expect, it } from "vitest";
 import { processAuditJob } from "../src/jobs/process-audit-job.js";
 
+const assessment = {
+  assessmentVersion: "1.0",
+  executiveSummary: "Evidence-based assessment.",
+  creativeIdentity: "Rhythmic R&B identity.",
+  strengths: ["Rhythm"],
+  risks: ["Limited market evidence"],
+  aAndRPositioning: {
+    primaryLane: "R&B",
+    adjacentLanes: ["Afro-R&B"],
+    rationale: "Supported by supplied evidence.",
+  },
+  commercialRead: {
+    marketability: "undetermined" as const,
+    rationale: "No market data supplied.",
+  },
+  releaseStrategy: {
+    recommendation: "Lead with the strongest sonic identity.",
+    priorities: ["Validate audience response"],
+  },
+  evidenceGaps: ["Audience telemetry"],
+  confidence: 0.8,
+  limitations: ["Evidence-limited assessment"],
+};
+
 describe("processAuditJob", () => {
-  it("moves a queued job through recognition and Sonic DNA analysis to completed", async () => {
+  it("moves a queued master through evidence, Sonic DNA, Groq assessment and completion", async () => {
     const events: string[] = [];
     const result = await processAuditJob("job-123", {
       getJob: async () => ({
@@ -10,6 +34,8 @@ describe("processAuditJob", () => {
         ownerId: "owner-123",
         sourceAudioPath: "owner-123/job-123/master.wav",
         mimeType: "audio/wav",
+        sourceType: "master",
+        catalogUrl: null,
         status: "queued" as const,
       }),
       markProcessing: async () => events.push("processing"),
@@ -32,12 +58,27 @@ describe("processAuditJob", () => {
         events.push("dna");
         expect(dna.sampleRate).toBe(44100);
       },
+      generateAssessment: async (input) => {
+        events.push("assessment");
+        expect(input.sonicDna).not.toBeNull();
+        expect(input.evidence).toMatchObject({ artist: "Artist", title: "Song" });
+        return assessment;
+      },
+      saveAssessment: async () => events.push("assessment-saved"),
       markCompleted: async () => events.push("completed"),
       markFailed: async () => events.push("failed"),
     });
 
     expect(result.status).toBe("completed");
-    expect(events).toEqual(["processing", "recognition", "evidence", "dna", "completed"]);
+    expect(events).toEqual([
+      "processing",
+      "recognition",
+      "evidence",
+      "dna",
+      "assessment",
+      "assessment-saved",
+      "completed",
+    ]);
   });
 
   it("marks the job failed and preserves the error when processing fails", async () => {
@@ -48,6 +89,8 @@ describe("processAuditJob", () => {
         ownerId: "owner-123",
         sourceAudioPath: "owner-123/job-123/master.wav",
         mimeType: "audio/wav",
+        sourceType: "master",
+        catalogUrl: null,
         status: "queued" as const,
       }),
       markProcessing: async () => {},
@@ -62,6 +105,8 @@ describe("processAuditJob", () => {
         throw new Error("not reached");
       },
       saveSonicDna: async () => {},
+      generateAssessment: async () => assessment,
+      saveAssessment: async () => {},
       markCompleted: async () => {},
       markFailed: async (_jobId, message) => {
         failure = message;
