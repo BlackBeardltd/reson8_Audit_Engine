@@ -4,6 +4,7 @@ import { createRecognitionSample } from "../audio/recognition-sample.js";
 import { AuddClient } from "../providers/audd/client.js";
 import { collectCatalogMetadata } from "../providers/dsp/catalog.js";
 import { GroqClient } from "../providers/groq/client.js";
+import { generateAuditReport } from "../reports/generate-audit-report.js";
 import { createSupabaseAuditStore } from "../integrations/supabase-audit-store.js";
 import { processAuditJob, type AuditProcessorDependencies } from "./process-audit-job.js";
 
@@ -41,6 +42,8 @@ export async function processNextQueuedAudit(): Promise<{ jobId: string; status:
     decode: async (bytes) => decoder.decode(bytes),
     generateAssessment: (input) => groq.assess(input),
     saveAssessment: async (jobId, assessment) => store.saveAssessment(jobId, assessment),
+    generateReport: generateAuditReport,
+    saveReport: async (jobId, tier, pdf) => store.saveReport(jobId, tier, pdf),
     markCompleted: async (jobId) => store.markCompleted(jobId),
     markFailed: async (jobId, message) => store.markFailed(jobId, message),
   };
