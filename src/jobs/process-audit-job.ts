@@ -4,14 +4,18 @@ import { analyzePcm, type SonicDnaFeatures } from "../audio/sonic-dna.js";
 export interface AuditJobRecord {
   id: string;
   ownerId: string;
-  sourceAudioPath: string;
-  mimeType: string;
+  sourceAudioPath: string | null;
+  mimeType: string | null;
+  sourceType: "master" | "dsp_link";
+  catalogUrl: string | null;
   status: "queued" | "processing" | "completed" | "failed";
 }
 
 export interface AuditProcessorDependencies {
   getJob(jobId: string): Promise<AuditJobRecord | null>;
   markProcessing(jobId: string): Promise<void>;
+  collectCatalogMetadata(url: string): Promise<import("../providers/dsp/catalog.js").CatalogMetadata>;
+  recognizeUrl(url: string): Promise<AuditRecognition>;
   downloadMaster(path: string): Promise<Uint8Array>;
   createRecognitionSample(master: Uint8Array, mimeType: string): Promise<Uint8Array>;
   recognize(sample: Uint8Array): Promise<AuditRecognition>;
@@ -34,6 +38,24 @@ export async function processAuditJob(
   try {
     await deps.markProcessing(jobId);
 
+    if (job.sourceType === "dsp_link") {
+      if (!job.catalogUrl) throw new Error("Catalog URL is missing");
+      const metadata = await deps.collectCatalogMetadata(job.catalogUrl);
+      await deps.saveCatalogMetadata(jobId, metadata);
+      if (metadata.previewUrl) {
+        try {
+          const recognition = await deps.recognizeUrl(metadata.previewUrl);
+          await deps.saveRecognition(jobId, recognition);
+          await deps.saveEvidence(jobId, recognition);
+        } catch {
+          // Provider preview recognition is enrichment; catalog metadata remains authoritative evidence.
+        }
+      }
+      await deps.markCompleted(jobId);
+      return { status: "completed" };
+    }
+
+    if (!job.sourceAudioPath || !job.mimeType) throw new Error("Master source is missing");
     const master = await deps.downloadMaster(job.sourceAudioPath);
     const sample = await deps.createRecognitionSample(master, job.mimeType);
     const recognition = await deps.recognize(sample);
