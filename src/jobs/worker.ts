@@ -14,20 +14,16 @@ export async function processNextQueuedAudit(): Promise<{ jobId: string; status:
 
   const deps: AuditProcessorDependencies = {
     getJob: async () => ({
-      id: job.id,
-      ownerId: job.ownerId,
-      sourceAudioPath: job.sourceAudioPath,
-      mimeType: job.mimeType,
-      status: "queued",
+      id: job.id, ownerId: job.ownerId, sourceAudioPath: job.sourceAudioPath, mimeType: job.mimeType, status: "queued",
     }),
     markProcessing: async (jobId) => store.markProcessing(jobId),
     downloadMaster: async (path) => store.downloadMaster(path),
     createRecognitionSample,
     recognize: (sample) => audd.recognize(sample),
     saveRecognition: async (jobId, recognition) => store.saveRecognition(jobId, recognition),
-    decode: async (bytes, mimeType) => decoder.decode(bytes, mimeType),
     saveSonicDna: async (jobId, dna) => store.saveSonicDna(jobId, dna),
     saveEvidence: async (jobId, recognition) => store.saveEvidence(jobId, recognition),
+    decode: async (bytes) => decoder.decode(bytes),
     markCompleted: async (jobId) => store.markCompleted(jobId),
     markFailed: async (jobId, message) => store.markFailed(jobId, message),
   };
