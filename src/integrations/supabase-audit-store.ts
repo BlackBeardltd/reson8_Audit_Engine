@@ -36,13 +36,11 @@ export function createSupabaseAuditStore(
 
   return {
     admin,
-
     async authenticate(accessToken) {
       const { data, error } = await admin.auth.getUser(accessToken);
       if (error || !data.user) throw new Error("Invalid authentication token");
       return data.user.id;
     },
-
     createJobDependencies() {
       return {
         ensureProfile: async (ownerId) => {
@@ -75,93 +73,61 @@ export function createSupabaseAuditStore(
         },
       };
     },
-
     async claimNextQueuedJob() {
       const { data: queued, error: selectError } = await admin
-        .from("audit_jobs")
-        .select("id,owner_id,source_audio_path,mime_type,status")
-        .eq("status", "queued")
-        .not("source_audio_path", "is", null)
-        .order("created_at", { ascending: true })
-        .limit(1)
-        .maybeSingle();
+        .from("audit_jobs").select("id,owner_id,source_audio_path,mime_type,status")
+        .eq("status", "queued").not("source_audio_path", "is", null)
+        .order("created_at", { ascending: true }).limit(1).maybeSingle();
       if (selectError) throw new Error(`Unable to read queued audits: ${selectError.message}`);
       if (!queued?.source_audio_path) return null;
-
       const { data: claimed, error: claimError } = await admin
         .from("audit_jobs")
         .update({ status: "processing", started_at: new Date().toISOString() })
-        .eq("id", queued.id)
-        .eq("status", "queued")
-        .select("id,owner_id,source_audio_path,mime_type,status")
-        .maybeSingle();
-
+        .eq("id", queued.id).eq("status", "queued")
+        .select("id,owner_id,source_audio_path,mime_type,status").maybeSingle();
       if (claimError) throw new Error(`Unable to claim audit job: ${claimError.message}`);
       if (!claimed) return null;
-
       await event(claimed.id, "processing_claimed", "processing");
-      return {
-        id: claimed.id as string,
-        ownerId: claimed.owner_id as string,
-        sourceAudioPath: claimed.source_audio_path as string,
-        mimeType: claimed.mime_type as string,
-        status: "queued",
-      };
+      return { id: claimed.id as string, ownerId: claimed.owner_id as string, sourceAudioPath: claimed.source_audio_path as string, mimeType: claimed.mime_type as string, status: "queued" };
     },
-
-    async markProcessing(jobId) {
-      await event(jobId, "processing_started", "processing");
-    },
-
+    async markProcessing(jobId) { await event(jobId, "processing_started", "processing"); },
     async downloadMaster(path) {
       const { data, error } = await admin.storage.from("audit-audio").download(path);
       if (error || !data) throw new Error(`Unable to download audio master: ${error?.message ?? "not found"}`);
       return new Uint8Array(await data.arrayBuffer());
     },
-
     async saveRecognition(jobId, recognition) {
       const row = recognition.matched ? {
         audit_job_id: jobId, provider: "audd", matched: true,
-        artist: recognition.artist ?? null, title: recognition.title ?? null,
-        album: recognition.album ?? null, release_date: recognition.releaseDate ?? null,
-        label: recognition.label ?? null, isrc: recognition.isrc ?? null,
+        artist: recognition.artist ?? null, title: recognition.title ?? null, album: recognition.album ?? null,
+        release_date: recognition.releaseDate ?? null, label: recognition.label ?? null, isrc: recognition.isrc ?? null,
         timecode: recognition.timecode ?? null, song_link: recognition.songLink ?? recognition.spotifyUrl ?? null,
         raw_response: recognition,
       } : {
-        audit_job_id: jobId, provider: "audd", matched: false, raw_response: recognition,
+        audit_job_id: jobId, provider: "audd", matched: false,
+        artist: null, title: null, album: null, release_date: null, label: null, isrc: null,
+        timecode: null, song_link: null, raw_response: recognition,
       };
       const { error } = await admin.from("recognition_results").upsert(row, { onConflict: "audit_job_id,provider" });
       if (error) throw new Error(`Unable to save recognition: ${error.message}`);
       await event(jobId, "recognition", recognition.matched ? "matched" : "unmatched");
     },
-
     async saveEvidence(jobId, recognition) {
       const evidence = buildSongEvidence(recognition);
       const { error } = await admin.from("reconciled_tracks").upsert({
-        audit_job_id: jobId,
-        canonical_artist: evidence.canonicalArtist,
-        canonical_title: evidence.canonicalTitle,
-        album: evidence.album,
-        release_date: evidence.releaseDate,
-        label: evidence.label,
-        isrc: evidence.isrc,
-        spotify_id: evidence.spotifyId,
-        apple_music_id: evidence.appleMusicId,
-        musicbrainz_id: evidence.musicbrainzId,
-        evidence_status: evidence.status,
-        confidence: evidence.confidence,
-        sources: evidence.sources,
+        audit_job_id: jobId, canonical_artist: evidence.canonicalArtist, canonical_title: evidence.canonicalTitle,
+        album: evidence.album, release_date: evidence.releaseDate, label: evidence.label, isrc: evidence.isrc,
+        spotify_id: evidence.spotifyId, apple_music_id: evidence.appleMusicId, musicbrainz_id: evidence.musicbrainzId,
+        evidence_status: evidence.status, confidence: evidence.confidence, sources: evidence.sources,
       }, { onConflict: "audit_job_id" });
       if (error) throw new Error(`Unable to save song evidence: ${error.message}`);
-      await event(jobId, "evidence_reconciliation", evidence.status, undefined, evidence);
+      await event(jobId, "evidence_reconciliation", evidence.status, undefined, { ...evidence });
     },
-
     async saveSonicDna(jobId, dna) {
       const { error } = await admin.from("sonic_dna").upsert({
-        audit_job_id: jobId, analysis_version: "audit-engine-0.1.0",
-        duration_seconds: dna.durationSeconds, sample_rate: dna.sampleRate, channels: dna.channels,
-        bpm: dna.bpm, key: dna.key, mode: dna.mode, loudness_lufs: dna.loudnessLufs,
-        rms_energy: dna.rmsEnergy, dynamic_range_db: dna.dynamicRangeDb,
+        audit_job_id: jobId, analysis_version: "audit-engine-0.1.0", duration_seconds: dna.durationSeconds,
+        sample_rate: dna.sampleRate, channels: dna.channels, bpm: dna.bpm, key: dna.key, mode: dna.mode,
+        loudness_lufs: dna.loudnessLufs, rms_energy: dna.rmsEnergy, dynamic_range_db: dna.dynamicRangeDb,
         spectral_centroid_hz: dna.spectralCentroidHz, spectral_bandwidth_hz: dna.spectralBandwidthHz,
         spectral_rolloff_hz: dna.spectralRolloffHz, zero_crossing_rate: dna.zeroCrossingRate,
         mood_tags: dna.moodTags, genre_context: dna.genreContext, raw_features: dna,
@@ -170,19 +136,13 @@ export function createSupabaseAuditStore(
       await admin.from("audit_jobs").update({ duration_seconds: dna.durationSeconds }).eq("id", jobId);
       await event(jobId, "sonic_dna", "completed", undefined, { analysisVersion: "audit-engine-0.1.0" });
     },
-
     async markCompleted(jobId) {
-      const { error } = await admin.from("audit_jobs").update({
-        status: "completed", completed_at: new Date().toISOString(), error_code: null, error_message: null,
-      }).eq("id", jobId);
+      const { error } = await admin.from("audit_jobs").update({ status: "completed", completed_at: new Date().toISOString(), error_code: null, error_message: null }).eq("id", jobId);
       if (error) throw new Error(`Unable to complete audit job: ${error.message}`);
       await event(jobId, "audit_completed", "completed");
     },
-
     async markFailed(jobId, message) {
-      const { error } = await admin.from("audit_jobs").update({
-        status: "failed", completed_at: new Date().toISOString(), error_code: "AUDIT_PROCESSING_FAILED", error_message: message,
-      }).eq("id", jobId);
+      const { error } = await admin.from("audit_jobs").update({ status: "failed", completed_at: new Date().toISOString(), error_code: "AUDIT_PROCESSING_FAILED", error_message: message }).eq("id", jobId);
       if (error) throw new Error(`Unable to mark audit job failed: ${error.message}`);
       await event(jobId, "audit_failed", "failed", message);
     },
