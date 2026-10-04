@@ -3,6 +3,7 @@ import { createAudioDecoder } from "../audio/decoder.js";
 import { createRecognitionSample } from "../audio/recognition-sample.js";
 import { AuddClient } from "../providers/audd/client.js";
 import { collectCatalogMetadata } from "../providers/dsp/catalog.js";
+import { GroqClient } from "../providers/groq/client.js";
 import { createSupabaseAuditStore } from "../integrations/supabase-audit-store.js";
 import { processAuditJob, type AuditProcessorDependencies } from "./process-audit-job.js";
 
@@ -15,6 +16,7 @@ export async function processNextQueuedAudit(): Promise<{ jobId: string; status:
 
   const audd = new AuddClient();
   const decoder = createAudioDecoder();
+  const groq = new GroqClient();
 
   const deps: AuditProcessorDependencies = {
     getJob: async () => ({
@@ -37,6 +39,8 @@ export async function processNextQueuedAudit(): Promise<{ jobId: string; status:
     saveEvidence: async (jobId, recognition) => store.saveEvidence(jobId, recognition),
     saveCatalogMetadata: async (jobId, metadata) => store.saveCatalogMetadata(jobId, metadata),
     decode: async (bytes) => decoder.decode(bytes),
+    generateAssessment: (input) => groq.assess(input),
+    saveAssessment: async (jobId, assessment) => store.saveAssessment(jobId, assessment),
     markCompleted: async (jobId) => store.markCompleted(jobId),
     markFailed: async (jobId, message) => store.markFailed(jobId, message),
   };
