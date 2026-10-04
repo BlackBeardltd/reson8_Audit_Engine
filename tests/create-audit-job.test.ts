@@ -76,7 +76,7 @@ describe("createAuditJob", () => {
       ),
     ).rejects.toThrow("storage unavailable");
 
-    expect(calls).toEqual(["profile", "job", "upload", "delete-job"]);
+    expect(calls).toEqual(["profile", "job", "upload", "delete-master", "delete-job"]);
   });
   it("cleans up the uploaded master when finalizing the job fails", async () => {
     const calls: string[] = [];
