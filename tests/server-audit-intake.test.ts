@@ -1,6 +1,30 @@
 import { describe, expect, it } from "vitest";
 import { buildServer } from "../src/server.js";
 
+describe("GET /health", () => {
+  it("returns a healthy Audit Engine status without requiring authentication", async () => {
+    const app = buildServer({
+      authenticate: async () => "11111111-1111-1111-1111-111111111111",
+      createJobDependencies: () => {
+        throw new Error("must not be called");
+      },
+    });
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/health",
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      status: "ok",
+      service: "reson8-audit-engine",
+    });
+
+    await app.close();
+  });
+});
+
 describe("POST /v1/audits", () => {
   it("requires bearer authentication before reading the audit payload", async () => {
     const app = buildServer({
