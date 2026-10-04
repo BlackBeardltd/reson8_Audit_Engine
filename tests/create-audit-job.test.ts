@@ -78,4 +78,32 @@ describe("createAuditJob", () => {
 
     expect(calls).toEqual(["profile", "job", "upload", "delete-job"]);
   });
+  it("cleans up the uploaded master when finalizing the job fails", async () => {
+    const calls: string[] = [];
+
+    await expect(
+      createAuditJob(
+        {
+          ownerId: "11111111-1111-1111-1111-111111111111",
+          filename: "master.wav",
+          mimeType: "audio/wav",
+          bytes: new Uint8Array([1]),
+        },
+        {
+          ensureProfile: async () => calls.push("profile"),
+          createJob: async () => "job-123",
+          uploadMaster: async () => calls.push("upload"),
+          setSourcePath: async () => {
+            calls.push("path");
+            throw new Error("database unavailable");
+          },
+          deleteMaster: async () => calls.push("delete-master"),
+          deleteJob: async () => calls.push("delete-job"),
+        },
+      ),
+    ).rejects.toThrow("database unavailable");
+
+    expect(calls).toEqual(["profile", "upload", "path", "delete-master", "delete-job"]);
+  });
+
 });
