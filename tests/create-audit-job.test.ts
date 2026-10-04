@@ -21,6 +21,7 @@ describe("createAuditJob", () => {
           expect(input.sha256).toBe("039058c6f2c0cb492c533b0a4d14ef77cc0f78abccced5287d84a1a2011cfb81");
           return "job-123";
         },
+        createCatalogJob: async () => "catalog-job",
         uploadMaster: async (path) => {
           calls.push("upload");
           expect(path).toBe(
@@ -65,6 +66,7 @@ describe("createAuditJob", () => {
             calls.push("job");
             return "job-123";
           },
+          createCatalogJob: async () => "catalog-job",
           uploadMaster: async () => {
             calls.push("upload");
             throw new Error("storage unavailable");
@@ -92,6 +94,7 @@ describe("createAuditJob", () => {
         {
           ensureProfile: async () => calls.push("profile"),
           createJob: async () => "job-123",
+          createCatalogJob: async () => "catalog-job",
           uploadMaster: async () => calls.push("upload"),
           setSourcePath: async () => {
             calls.push("path");
