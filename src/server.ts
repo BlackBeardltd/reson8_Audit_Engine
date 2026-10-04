@@ -1,4 +1,5 @@
 import Fastify from "fastify";
+import { readFile } from "node:fs/promises";
 import { extractBearerToken } from "./auth/bearer.js";
 import { createAuditJob } from "./jobs/create-audit-job.js";
 import { MAX_AUDIO_FILE_BYTES } from "./jobs/audio-intake.js";
@@ -10,6 +11,10 @@ export interface AuditStore {
   createJobDependencies(): CreateAuditJobDependencies;
 }
 
+async function servePublicFile(filename: string) {
+  return readFile(new URL(`../public/${filename}`, import.meta.url));
+}
+
 export function buildServer(store: AuditStore = createSupabaseAuditStore()) {
   const app = Fastify({
     logger: true,
@@ -18,6 +23,18 @@ export function buildServer(store: AuditStore = createSupabaseAuditStore()) {
 
   app.addContentTypeParser(/^audio\/.+$/i, { parseAs: "buffer" }, (_request, body, done) => {
     done(null, body);
+  });
+
+  app.get("/", async (_request, reply) => {
+    return reply.type("text/html; charset=utf-8").send(await servePublicFile("index.html"));
+  });
+
+  app.get("/styles.css", async (_request, reply) => {
+    return reply.type("text/css; charset=utf-8").send(await servePublicFile("styles.css"));
+  });
+
+  app.get("/app.js", async (_request, reply) => {
+    return reply.type("text/javascript; charset=utf-8").send(await servePublicFile("app.js"));
   });
 
   app.get("/health", async () => ({
