@@ -1,6 +1,28 @@
 import { describe, expect, it } from "vitest";
 import { buildServer } from "../src/server.js";
 
+describe("GET /", () => {
+  it("serves the data-ingestion UI without authentication", async () => {
+    const app = buildServer({
+      authenticate: async () => "11111111-1111-1111-1111-111111111111",
+      createJobDependencies: () => {
+        throw new Error("must not be called");
+      },
+    });
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/",
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.headers["content-type"]).toContain("text/html");
+    expect(response.body).toContain("Submit a recording for evidence-grade A&R analysis.");
+
+    await app.close();
+  });
+});
+
 describe("GET /health", () => {
   it("returns a healthy Audit Engine status without requiring authentication", async () => {
     const app = buildServer({
