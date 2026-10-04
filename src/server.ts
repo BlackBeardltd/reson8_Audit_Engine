@@ -9,7 +9,25 @@ import type { CreateAuditJobDependencies } from "./jobs/create-audit-job.js";
 
 export interface AuditStore {
   authenticate(accessToken: string): Promise<string>;
+  resolvePublicOwnerId(): Promise<string>;
   createJobDependencies(): CreateAuditJobDependencies;
+}
+
+const PUBLIC_RATE_LIMIT = Number(process.env.PUBLIC_AUDIT_RATE_LIMIT_PER_HOUR ?? 30);
+const publicRequests = new Map<string, { count: number; resetAt: number }>();
+
+function allowPublicRequest(ip: string): boolean {
+  const now = Date.now();
+  const current = publicRequests.get(ip);
+
+  if (!current || current.resetAt <= now) {
+    publicRequests.set(ip, { count: 1, resetAt: now + 60 * 60 * 1000 });
+    return true;
+  }
+
+  if (current.count >= PUBLIC_RATE_LIMIT) return false;
+  current.count += 1;
+  return true;
 }
 
 async function servePublicFile(filename: string) {
@@ -19,10 +37,11 @@ async function servePublicFile(filename: string) {
 export function buildServer(store: AuditStore = createSupabaseAuditStore()) {
   const app = Fastify({
     logger: true,
+    trustProxy: true,
     bodyLimit: MAX_AUDIO_FILE_BYTES,
   });
 
-  app.addContentTypeParser(/^audio\/.+$/i, { parseAs: "buffer" }, (_request, body, done) => {
+  app.addContentTypeParser(/^audio\\/.+$/i, { parseAs: "buffer" }, (_request, body, done) => {
     done(null, body);
   });
 
@@ -43,10 +62,26 @@ export function buildServer(store: AuditStore = createSupabaseAuditStore()) {
     Body: { url?: string };
   }>("/v1/audits/catalog", async (request, reply) => {
     try {
-      const token = extractBearerToken(request.headers.authorization);
-      const ownerId = await store.authenticate(token);
+      const hasSession = Boolean(request.headers.authorization);
+      if (!hasSession && !allowPublicRequest(request.ip)) {
+        return reply.code(429).send({
+          error: "PUBLIC_RATE_LIMITED",
+          message: "Public sample limit reached. Please try again later.",
+        });
+      }
+
+      const ownerId = hasSession
+        ? await store.authenticate(extractBearerToken(request.headers.authorization))
+        : await store.resolvePublicOwnerId();
+
       const url = typeof request.body?.url === "string" ? request.body.url : "";
-      if (!url) return reply.code(400).send({ error: "CATALOG_URL_REQUIRED", message: "A DSP or catalog URL is required" });
+      if (!url) {
+        return reply.code(400).send({
+          error: "CATALOG_URL_REQUIRED",
+          message: "A DSP or catalog URL is required",
+        });
+      }
+
       const result = await createCatalogAuditJob(
         { ownerId, catalogUrl: url },
         {
@@ -60,12 +95,19 @@ export function buildServer(store: AuditStore = createSupabaseAuditStore()) {
           },
         },
       );
-      return reply.code(201).send({ jobId: result.jobId, status: "queued", sourceType: "dsp_link", sha256: result.sha256 });
+
+      return reply.code(201).send({
+        jobId: result.jobId,
+        status: "queued",
+        sourceType: "dsp_link",
+        sha256: result.sha256,
+      });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unable to create catalog audit job";
       if (message === "Authorization token is required" || message === "Invalid authentication token") {
         return reply.code(401).send({ error: "UNAUTHORIZED", message });
       }
+      request.log.error({ err: error }, "catalog audit job creation failed");
       return reply.code(400).send({ error: "INVALID_CATALOG_URL", message });
     }
   });
@@ -82,8 +124,18 @@ export function buildServer(store: AuditStore = createSupabaseAuditStore()) {
     };
   }>("/v1/audits", async (request, reply) => {
     try {
-      const token = extractBearerToken(request.headers.authorization);
-      const ownerId = await store.authenticate(token);
+      const hasSession = Boolean(request.headers.authorization);
+      if (!hasSession && !allowPublicRequest(request.ip)) {
+        return reply.code(429).send({
+          error: "PUBLIC_RATE_LIMITED",
+          message: "Public sample limit reached. Please try again later.",
+        });
+      }
+
+      const ownerId = hasSession
+        ? await store.authenticate(extractBearerToken(request.headers.authorization))
+        : await store.resolvePublicOwnerId();
+
       const filename = request.headers["x-audio-filename"];
 
       if (!filename) {
