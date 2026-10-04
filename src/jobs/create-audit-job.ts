@@ -50,7 +50,11 @@ export async function createAuditJob(
     await deps.uploadMaster(sourceAudioPath, input.bytes, validated.mimeType);
     await deps.setSourcePath(jobId, sourceAudioPath);
   } catch (error) {
-    await deps.deleteJob?.(jobId);
+    try {
+      await deps.deleteMaster(sourceAudioPath);
+    } finally {
+      await deps.deleteJob?.(jobId);
+    }
     throw error;
   }
 
