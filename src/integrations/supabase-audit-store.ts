@@ -10,6 +10,7 @@ export interface SupabaseAuditStore {
   admin: SupabaseClient;
   createJobDependencies(): CreateAuditJobDependencies;
   authenticate(accessToken: string): Promise<string>;
+  resolvePublicOwnerId(): Promise<string>;
   claimNextQueuedJob(): Promise<AuditJobRecord | null>;
   markProcessing(jobId: string): Promise<void>;
   downloadMaster(path: string): Promise<Uint8Array>;
@@ -32,8 +33,54 @@ export function createSupabaseAuditStore(
     auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false },
   });
 
+  let publicOwnerPromise: Promise<string> | null = null;
+
+  const ensureProfile = async (ownerId: string) => {
+    const { error } = await admin
+      .from("profiles")
+      .upsert({ id: ownerId }, { onConflict: "id", ignoreDuplicates: true });
+
+    if (error) throw new Error(`Unable to initialize profile: ${error.message}`);
+  };
+
   const event = async (jobId: string, eventType: string, status: string, message?: string, payload: Record<string, unknown> = {}) => {
     await admin.from("audit_events").insert({ audit_job_id: jobId, event_type: eventType, status, message, payload });
+  };
+
+  const resolvePublicOwnerId = async (): Promise<string> => {
+    if (!publicOwnerPromise) {
+      publicOwnerPromise = (async () => {
+        const email = process.env.PUBLIC_AUDIT_OWNER_EMAIL ?? "audit-public@reson8.local";
+
+        const { data: listed, error: listError } = await admin.auth.admin.listUsers({
+          page: 1,
+          perPage: 1000,
+        });
+
+        if (listError) {
+          throw new Error(`Unable to resolve public audit owner: ${listError.message}`);
+        }
+
+        const existing = listed.users.find((user) => user.email?.toLowerCase() === email.toLowerCase());
+        const user = existing
+          ? existing
+          : (await admin.auth.admin.createUser({
+              email,
+              email_confirm: true,
+              user_metadata: { role: "audit_public_intake" },
+            })).data.user;
+
+        if (!user) throw new Error("Unable to create public audit owner");
+
+        await ensureProfile(user.id);
+        return user.id;
+      })().catch((error) => {
+        publicOwnerPromise = null;
+        throw error;
+      });
+    }
+
+    return publicOwnerPromise;
   };
 
   return {
@@ -43,12 +90,10 @@ export function createSupabaseAuditStore(
       if (error || !data.user) throw new Error("Invalid authentication token");
       return data.user.id;
     },
+    resolvePublicOwnerId,
     createJobDependencies() {
       return {
-        ensureProfile: async (ownerId) => {
-          const { error } = await admin.from("profiles").upsert({ id: ownerId }, { onConflict: "id", ignoreDuplicates: true });
-          if (error) throw new Error(`Unable to initialize profile: ${error.message}`);
-        },
+        ensureProfile,
         createJob: async (input) => {
           const { data, error } = await admin.from("audit_jobs").insert({
             owner_id: input.ownerId, status: "queued", original_filename: input.filename,
@@ -100,7 +145,15 @@ export function createSupabaseAuditStore(
       if (claimError) throw new Error(`Unable to claim audit job: ${claimError.message}`);
       if (!claimed) return null;
       await event(claimed.id, "processing_claimed", "processing");
-      return { id: claimed.id as string, ownerId: claimed.owner_id as string, sourceAudioPath: claimed.source_audio_path as string | null, mimeType: claimed.mime_type as string | null, sourceType: (claimed.source_type ?? "master") as "master" | "dsp_link", catalogUrl: claimed.catalog_url as string | null, status: "queued" };
+      return {
+        id: claimed.id as string,
+        ownerId: claimed.owner_id as string,
+        sourceAudioPath: claimed.source_audio_path as string | null,
+        mimeType: claimed.mime_type as string | null,
+        sourceType: (claimed.source_type ?? "master") as "master" | "dsp_link",
+        catalogUrl: claimed.catalog_url as string | null,
+        status: "queued",
+      };
     },
     async markProcessing(jobId) { await event(jobId, "processing_started", "processing"); },
     async downloadMaster(path) {
