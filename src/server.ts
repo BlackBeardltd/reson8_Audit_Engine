@@ -3,8 +3,14 @@ import { extractBearerToken } from "./auth/bearer.js";
 import { createAuditJob } from "./jobs/create-audit-job.js";
 import { MAX_AUDIO_FILE_BYTES } from "./jobs/audio-intake.js";
 import { createSupabaseAuditStore } from "./integrations/supabase-audit-store.js";
+import type { CreateAuditJobDependencies } from "./jobs/create-audit-job.js";
 
-export function buildServer() {
+export interface AuditStore {
+  authenticate(accessToken: string): Promise<string>;
+  createJobDependencies(): CreateAuditJobDependencies;
+}
+
+export function buildServer(store: AuditStore = createSupabaseAuditStore()) {
   const app = Fastify({
     logger: true,
     bodyLimit: MAX_AUDIO_FILE_BYTES,
@@ -27,7 +33,6 @@ export function buildServer() {
   }>("/v1/audits", async (request, reply) => {
     try {
       const token = extractBearerToken(request.headers.authorization);
-      const store = createSupabaseAuditStore();
       const ownerId = await store.authenticate(token);
       const filename = request.headers["x-audio-filename"];
 
