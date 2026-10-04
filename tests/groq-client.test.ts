@@ -63,7 +63,11 @@ describe("GroqClient", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const body = JSON.parse(String((fetchMock.mock.calls[0] as any)[1].body));
     expect(body.model).toBe("test-model");
-    expect(body.response_format).toEqual({ type: "json_object" });
+    expect(body.response_format.type).toBe("json_schema");
+    expect(body.response_format.json_schema.name).toBe("ar_assessment");
+    expect(body.response_format.json_schema.strict).toBe(true);
+    expect(body.response_format.json_schema.schema.properties.assessmentVersion).toBeDefined();
+    expect(body.response_format.json_schema.schema.required).toContain("executiveSummary");
   });
 
   it("rejects non-JSON or schema-invalid model output", async () => {
