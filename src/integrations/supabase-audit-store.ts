@@ -2,6 +2,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { CreateAuditJobDependencies } from "../jobs/create-audit-job.js";
 import type { AuditJobRecord } from "../jobs/process-audit-job.js";
 import type { AuditRecognition } from "../providers/audd/normalize.js";
+import { collectCatalogMetadata, type CatalogMetadata } from "../providers/dsp/catalog.js";
 import { buildSongEvidence } from "../jobs/song-evidence.js";
 import type { SonicDnaFeatures } from "../audio/sonic-dna.js";
 
@@ -14,6 +15,7 @@ export interface SupabaseAuditStore {
   downloadMaster(path: string): Promise<Uint8Array>;
   saveRecognition(jobId: string, recognition: AuditRecognition): Promise<void>;
   saveEvidence(jobId: string, recognition: AuditRecognition): Promise<void>;
+  saveCatalogMetadata(jobId: string, metadata: CatalogMetadata): Promise<void>;
   saveSonicDna(jobId: string, dna: SonicDnaFeatures): Promise<void>;
   markCompleted(jobId: string): Promise<void>;
   markFailed(jobId: string, message: string): Promise<void>;
@@ -55,6 +57,14 @@ export function createSupabaseAuditStore(
           if (error || !data) throw new Error(`Unable to create audit job: ${error?.message ?? "unknown error"}`);
           return data.id as string;
         },
+        createCatalogJob: async (input) => {
+          const { data, error } = await admin.from("audit_jobs").insert({
+            owner_id: input.ownerId, status: "queued", source_type: "dsp_link",
+            catalog_url: input.catalogUrl, sha256: input.sha256,
+          }).select("id").single();
+          if (error || !data) throw new Error(`Unable to create catalog audit job: ${error?.message ?? "unknown error"}`);
+          return data.id as string;
+        },
         uploadMaster: async (path, bytes, mimeType) => {
           const { error } = await admin.storage.from("audit-audio").upload(path, bytes, { contentType: mimeType, upsert: false });
           if (error) throw new Error(`Unable to store audio master: ${error.message}`);
@@ -75,8 +85,8 @@ export function createSupabaseAuditStore(
     },
     async claimNextQueuedJob() {
       const { data: queued, error: selectError } = await admin
-        .from("audit_jobs").select("id,owner_id,source_audio_path,mime_type,status")
-        .eq("status", "queued").not("source_audio_path", "is", null)
+        .from("audit_jobs").select("id,owner_id,source_audio_path,mime_type,source_type,catalog_url,status")
+        .eq("status", "queued")
         .order("created_at", { ascending: true }).limit(1).maybeSingle();
       if (selectError) throw new Error(`Unable to read queued audits: ${selectError.message}`);
       if (!queued?.source_audio_path) return null;
@@ -88,13 +98,31 @@ export function createSupabaseAuditStore(
       if (claimError) throw new Error(`Unable to claim audit job: ${claimError.message}`);
       if (!claimed) return null;
       await event(claimed.id, "processing_claimed", "processing");
-      return { id: claimed.id as string, ownerId: claimed.owner_id as string, sourceAudioPath: claimed.source_audio_path as string, mimeType: claimed.mime_type as string, status: "queued" };
+      return { id: claimed.id as string, ownerId: claimed.owner_id as string, sourceAudioPath: claimed.source_audio_path as string | null, mimeType: claimed.mime_type as string | null, sourceType: (claimed.source_type ?? "master") as "master" | "dsp_link", catalogUrl: claimed.catalog_url as string | null, status: "queued" };
     },
     async markProcessing(jobId) { await event(jobId, "processing_started", "processing"); },
     async downloadMaster(path) {
       const { data, error } = await admin.storage.from("audit-audio").download(path);
       if (error || !data) throw new Error(`Unable to download audio master: ${error?.message ?? "not found"}`);
       return new Uint8Array(await data.arrayBuffer());
+    },
+    async saveCatalogMetadata(jobId, metadata) {
+      const { error } = await admin.from("reconciled_tracks").upsert({
+        audit_job_id: jobId, canonical_artist: metadata.artist, canonical_title: metadata.title,
+        album: metadata.album, release_date: metadata.releaseDate, label: metadata.label,
+        isrc: metadata.isrc, upc: metadata.upc, spotify_id: metadata.externalIds.spotify ?? null,
+        apple_music_id: metadata.externalIds.apple_music ?? null, evidence_status: metadata.evidenceStatus,
+        sources: [{ provider: metadata.platform, url: metadata.canonicalUrl, catalogId: metadata.catalogId }],
+        confidence: metadata.evidenceStatus === "verified" ? 1 : 0.6,
+      }, { onConflict: "audit_job_id" });
+      if (error) throw new Error(`Unable to save catalog evidence: ${error.message}`);
+      const { error: jobError } = await admin.from("audit_jobs").update({
+        catalog_platform: metadata.platform, catalog_id: metadata.catalogId, catalog_metadata: metadata.raw,
+      }).eq("id", jobId);
+      if (jobError) throw new Error(`Unable to save catalog metadata: ${jobError.message}`);
+      await event(jobId, "catalog_ingestion", metadata.evidenceStatus, undefined, {
+        platform: metadata.platform, catalogId: metadata.catalogId, hasPreview: Boolean(metadata.previewUrl),
+      });
     },
     async saveRecognition(jobId, recognition) {
       const row = {
