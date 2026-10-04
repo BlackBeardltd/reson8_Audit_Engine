@@ -10,13 +10,8 @@ export interface CreateAuditJobInput {
 
 export interface CreateAuditJobDependencies {
   ensureProfile: (ownerId: string) => Promise<void>;
-  createJob: (input: {
-    ownerId: string;
-    filename: string;
-    mimeType: string;
-    sizeBytes: number;
-    sha256: string;
-  }) => Promise<string>;
+  createJob: (input: { ownerId: string; filename: string; mimeType: string; sizeBytes: number; sha256: string; }) => Promise<string>;
+  createCatalogJob: (input: { ownerId: string; catalogUrl: string; sha256: string }) => Promise<string>;
   uploadMaster: (path: string, bytes: Uint8Array, mimeType: string) => Promise<void>;
   setSourcePath: (jobId: string, path: string) => Promise<void>;
   deleteMaster: (path: string) => Promise<void>;
