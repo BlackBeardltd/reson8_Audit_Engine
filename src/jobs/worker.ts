@@ -31,7 +31,7 @@ export async function processNextQueuedAudit(): Promise<{ jobId: string; status:
     }),
     markProcessing: async (jobId) => store.markProcessing(jobId),
     downloadMaster: async (path) => store.downloadMaster(path),
-    createRecognitionSample,
+    createRecognitionSample: audd ? createRecognitionSample : async () => new Uint8Array(),
     recognize: (sample) => audd ? audd.recognize(sample) : Promise.resolve({ matched: false }),
     recognizeUrl: (url) => audd ? audd.recognizeUrl(url) : Promise.resolve({ matched: false }),
     collectCatalogMetadata,
