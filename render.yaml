@@ -16,7 +16,7 @@ services:
         value: https://gznwamoxuxzaayjaxvlo.supabase.co
       - key: SUPABASE_SECRET_KEY
         sync: false
-      - key: AUDD_API_TOKEN
+      - key: AUDD_API
         sync: false
 
   - type: cron
