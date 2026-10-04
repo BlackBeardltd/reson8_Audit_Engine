@@ -17,6 +17,23 @@ describe("Sonic DNA", () => {
     expect(result.zeroCrossingRate).toBeGreaterThan(0.05);
   });
 
+  it("keeps full-length spectral analysis bounded", () => {
+    const sampleRate = 8000;
+    const seconds = 60;
+    const samples = Float32Array.from({ length: sampleRate * seconds }, (_, i) =>
+      Math.sin((2 * Math.PI * 220 * i) / sampleRate),
+    );
+
+    const started = performance.now();
+    const result = analyzePcm(samples, sampleRate);
+    const elapsedMs = performance.now() - started;
+
+    expect(result.durationSeconds).toBe(seconds);
+    expect(result.spectralCentroidHz).toBeGreaterThan(100);
+    expect(result.spectralCentroidHz).toBeLessThan(400);
+    expect(elapsedMs).toBeLessThan(5000);
+  });
+
   it("estimates tempo from a regular pulse train", () => {
     const sampleRate = 8000;
     const bpm = 120;
