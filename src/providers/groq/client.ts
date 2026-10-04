@@ -76,7 +76,14 @@ export class GroqClient implements GroqAssessmentClient {
       body: JSON.stringify({
         model: this.model,
         temperature: 0.1,
-        response_format: { type: "json_object" },
+        response_format: {
+          type: "json_schema",
+          json_schema: {
+            name: "ar_assessment",
+            strict: true,
+            schema: z.toJSONSchema(AssessmentSchema),
+          },
+        },
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
           {
