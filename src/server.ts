@@ -2,6 +2,7 @@ import Fastify from "fastify";
 import { readFile } from "node:fs/promises";
 import { extractBearerToken } from "./auth/bearer.js";
 import { createAuditJob } from "./jobs/create-audit-job.js";
+import { createCatalogAuditJob } from "./jobs/create-catalog-audit-job.js";
 import { MAX_AUDIO_FILE_BYTES } from "./jobs/audio-intake.js";
 import { createSupabaseAuditStore } from "./integrations/supabase-audit-store.js";
 import type { CreateAuditJobDependencies } from "./jobs/create-audit-job.js";
@@ -35,6 +36,38 @@ export function buildServer(store: AuditStore = createSupabaseAuditStore()) {
 
   app.get("/app.js", async (_request, reply) => {
     return reply.type("text/javascript; charset=utf-8").send(await servePublicFile("app.js"));
+  });
+
+  app.post<{
+    Headers: { authorization?: string; };
+    Body: { url?: string };
+  }>("/v1/audits/catalog", async (request, reply) => {
+    try {
+      const token = extractBearerToken(request.headers.authorization);
+      const ownerId = await store.authenticate(token);
+      const url = typeof request.body?.url === "string" ? request.body.url : "";
+      if (!url) return reply.code(400).send({ error: "CATALOG_URL_REQUIRED", message: "A DSP or catalog URL is required" });
+      const result = await createCatalogAuditJob(
+        { ownerId, catalogUrl: url },
+        {
+          ensureProfile: async (id) => {
+            const deps = store.createJobDependencies();
+            await deps.ensureProfile(id);
+          },
+          createCatalogJob: async (input) => {
+            const deps = store.createJobDependencies();
+            return deps.createCatalogJob(input);
+          },
+        },
+      );
+      return reply.code(201).send({ jobId: result.jobId, status: "queued", sourceType: "dsp_link", sha256: result.sha256 });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to create catalog audit job";
+      if (message === "Authorization token is required" || message === "Invalid authentication token") {
+        return reply.code(401).send({ error: "UNAUTHORIZED", message });
+      }
+      return reply.code(400).send({ error: "INVALID_CATALOG_URL", message });
+    }
   });
 
   app.get("/health", async () => ({
