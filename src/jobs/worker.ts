@@ -1,3 +1,4 @@
+import { createServer } from "node:http";
 import { createAudioDecoder } from "../audio/decoder.js";
 import { createRecognitionSample } from "../audio/recognition-sample.js";
 import { AuddClient } from "../providers/audd/client.js";
@@ -37,7 +38,29 @@ export async function processNextQueuedAudit(): Promise<{ jobId: string; status:
   return { jobId: job.id, ...(await processAuditJob(job.id, deps)) };
 }
 
+function startHealthServer(): void {
+  const port = Number(process.env.PORT ?? 10000);
+  const host = process.env.HOST ?? "0.0.0.0";
+
+  createServer((request, response) => {
+    if (request.url === "/health") {
+      response.writeHead(200, { "content-type": "application/json" });
+      response.end(JSON.stringify({
+        status: "ok",
+        service: "reson8-audit-worker",
+      }));
+      return;
+    }
+
+    response.writeHead(404, { "content-type": "application/json" });
+    response.end(JSON.stringify({ error: "NOT_FOUND" }));
+  }).listen(port, host, () => {
+    console.log(JSON.stringify({ worker: "audit", status: "health-listening", port, host }));
+  });
+}
+
 async function runWorkerLoop(): Promise<void> {
+  startHealthServer();
   console.log(JSON.stringify({ worker: "audit", status: "started", pollIntervalMs: POLL_INTERVAL_MS }));
 
   for (;;) {
