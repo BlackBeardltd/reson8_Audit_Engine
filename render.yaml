@@ -18,6 +18,10 @@ services:
         sync: false
       - key: AUDD_API
         sync: false
+      - key: GROQ_API
+        sync: false
+      - key: GROQ_MODEL
+        value: llama-3.3-70b-versatile
 
   - type: cron
     name: reson8-audit-worker
@@ -35,5 +39,9 @@ services:
         value: https://gznwamoxuxzaayjaxvlo.supabase.co
       - key: SUPABASE_SECRET_KEY
         sync: false
-      - key: AUDD_API_TOKEN
+      - key: AUDD_API
         sync: false
+      - key: GROQ_API
+        sync: false
+      - key: GROQ_MODEL
+        value: llama-3.3-70b-versatile
