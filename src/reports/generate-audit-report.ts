@@ -63,8 +63,8 @@ function addEditableField(
   const field = form.createTextField(name);
   field.enableMultiline();
   field.setText(value);
-  field.setFontSize(9);
   field.addToPage(page, { x, y: y - height, width, height });
+  field.setFontSize(9);
   field.updateAppearances(font);
   return y - height - 14;
 }
