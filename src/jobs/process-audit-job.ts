@@ -1,4 +1,5 @@
 import type { AuditRecognition } from "../providers/audd/normalize.js";
+import type { CatalogMetadata } from "../providers/dsp/catalog.js";
 import { analyzePcm, type SonicDnaFeatures } from "../audio/sonic-dna.js";
 
 export interface AuditJobRecord {
@@ -21,6 +22,7 @@ export interface AuditProcessorDependencies {
   recognize(sample: Uint8Array): Promise<AuditRecognition>;
   saveRecognition(jobId: string, recognition: AuditRecognition): Promise<void>;
   saveEvidence(jobId: string, recognition: AuditRecognition): Promise<void>;
+  saveCatalogMetadata(jobId: string, metadata: CatalogMetadata): Promise<void>;
   decode(bytes: Uint8Array, mimeType?: string): Promise<{ samples: Float32Array; sampleRate: number; channels: number }>;
   saveSonicDna(jobId: string, dna: SonicDnaFeatures): Promise<void>;
   markCompleted(jobId: string): Promise<void>;
