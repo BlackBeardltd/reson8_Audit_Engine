@@ -1,6 +1,7 @@
 import type { AuditRecognition } from "../providers/audd/normalize.js";
 import type { CatalogMetadata } from "../providers/dsp/catalog.js";
 import type { ArAssessment } from "../providers/groq/client.js";
+import type { AuditReportInput, AuditReportTier } from "../reports/generate-audit-report.js";
 import { analyzePcm, type SonicDnaFeatures } from "../audio/sonic-dna.js";
 
 export interface AuditJobRecord {
@@ -32,6 +33,8 @@ export interface AuditProcessorDependencies {
     catalogMetadata?: Record<string, unknown> | null;
   }): Promise<ArAssessment>;
   saveAssessment(jobId: string, assessment: ArAssessment): Promise<void>;
+  generateReport(input: AuditReportInput, tier: AuditReportTier): Promise<Uint8Array>;
+  saveReport(jobId: string, tier: AuditReportTier, pdf: Uint8Array): Promise<void>;
   markCompleted(jobId: string): Promise<void>;
   markFailed(jobId: string, message: string): Promise<void>;
 }
@@ -126,11 +129,21 @@ export async function processAuditJob(
         }
       }
 
-      await deps.saveAssessment(jobId, await deps.generateAssessment({
-        evidence: recognition ? recognitionEvidence(recognition) : catalogEvidence(metadata),
+      const evidence = recognition ? recognitionEvidence(recognition) : catalogEvidence(metadata);
+      const assessment = await deps.generateAssessment({
+        evidence,
         sonicDna: null,
         catalogMetadata: catalogEvidence(metadata),
-      }));
+      });
+      await deps.saveAssessment(jobId, assessment);
+      const generatedAt = new Date().toISOString();
+      for (const tier of ["sample", "full"] as const) {
+        const pdf = await deps.generateReport(
+          { auditId: jobId, generatedAt, evidence, sonicDna: null, assessment },
+          tier,
+        );
+        await deps.saveReport(jobId, tier, pdf);
+      }
       await deps.markCompleted(jobId);
       return { status: "completed" };
     }
@@ -152,11 +165,22 @@ export async function processAuditJob(
     };
     await deps.saveSonicDna(jobId, normalizedDna);
 
-    await deps.saveAssessment(jobId, await deps.generateAssessment({
-      evidence: recognitionEvidence(recognition),
-      sonicDna: dnaEvidence(normalizedDna),
+    const evidence = recognitionEvidence(recognition);
+    const sonicDna = dnaEvidence(normalizedDna);
+    const assessment = await deps.generateAssessment({
+      evidence,
+      sonicDna,
       catalogMetadata: null,
-    }));
+    });
+    await deps.saveAssessment(jobId, assessment);
+    const generatedAt = new Date().toISOString();
+    for (const tier of ["sample", "full"] as const) {
+      const pdf = await deps.generateReport(
+        { auditId: jobId, generatedAt, evidence, sonicDna, assessment },
+        tier,
+      );
+      await deps.saveReport(jobId, tier, pdf);
+    }
 
     await deps.markCompleted(jobId);
     return { status: "completed" };
