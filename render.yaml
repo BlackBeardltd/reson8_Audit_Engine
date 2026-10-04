@@ -23,13 +23,12 @@ services:
       - key: GROQ_MODEL
         value: llama-3.3-70b-versatile
 
-  - type: cron
+  - type: worker
     name: reson8-audit-worker
     runtime: node
     plan: starter
     region: frankfurt
     branch: main
-    schedule: "*/1 * * * *"
     buildCommand: npm install && npm run build
     startCommand: npm run worker
     envVars:

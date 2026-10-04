@@ -11,6 +11,18 @@ export interface AuditStore {
   authenticate(accessToken: string): Promise<string>;
   resolvePublicOwnerId(): Promise<string>;
   createJobDependencies(): CreateAuditJobDependencies;
+  getAuditStatus(jobId: string): Promise<{
+    jobId: string;
+    status: "queued" | "processing" | "completed" | "failed";
+    errorMessage?: string | null;
+    sample: { available: boolean; version?: number };
+    full: { available: boolean; version?: number; locked: boolean };
+  }>;
+  getAuditReport(jobId: string, tier: "sample" | "full", ownerId?: string): Promise<{
+    bytes: Uint8Array;
+    contentType: string;
+    filename: string;
+  }>;
 }
 
 const PUBLIC_RATE_LIMIT = Number(process.env.PUBLIC_AUDIT_RATE_LIMIT_PER_HOUR ?? 30);
@@ -116,6 +128,63 @@ export function buildServer(store: AuditStore = createSupabaseAuditStore()) {
     status: "ok",
     service: "reson8-audit-engine",
   }));
+  app.get<{
+    Params: { jobId: string };
+  }>("/v1/audits/:jobId", async (request, reply) => {
+    try {
+      return reply.send(await store.getAuditStatus(request.params.jobId));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to read audit status";
+      if (message === "Audit job not found") {
+        return reply.code(404).send({ error: "AUDIT_NOT_FOUND", message });
+      }
+      request.log.error({ err: error }, "audit status lookup failed");
+      return reply.code(500).send({ error: "AUDIT_STATUS_FAILED", message: "Unable to read audit status" });
+    }
+  });
+
+  app.get<{
+    Params: { jobId: string; tier: "sample" | "full" };
+    Headers: { authorization?: string };
+  }>("/v1/audits/:jobId/reports/:tier", async (request, reply) => {
+    const tier = request.params.tier;
+    if (tier !== "sample" && tier !== "full") {
+      return reply.code(404).send({ error: "REPORT_NOT_FOUND", message: "Report not found" });
+    }
+
+    try {
+      let ownerId: string | undefined;
+      if (tier === "full") {
+        if (!request.headers.authorization) {
+          return reply.code(401).send({
+            error: "UNAUTHORIZED",
+            message: "Authentication is required to access the full report.",
+          });
+        }
+        ownerId = await store.authenticate(extractBearerToken(request.headers.authorization));
+      }
+
+      const report = await store.getAuditReport(request.params.jobId, tier, ownerId);
+      return reply
+        .type(report.contentType)
+        .header("content-disposition", `attachment; filename="${report.filename}"`)
+        .send(Buffer.from(report.bytes));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to retrieve report";
+      if (message === "Authorization token is required" || message === "Invalid authentication token") {
+        return reply.code(401).send({ error: "UNAUTHORIZED", message });
+      }
+      if (message === "Full report access denied") {
+        return reply.code(403).send({ error: "FORBIDDEN", message });
+      }
+      if (message === "Audit job not found" || message === "Report not found") {
+        return reply.code(404).send({ error: "REPORT_NOT_FOUND", message: "Report not found" });
+      }
+      request.log.error({ err: error }, "audit report retrieval failed");
+      return reply.code(500).send({ error: "REPORT_RETRIEVAL_FAILED", message: "Unable to retrieve report" });
+    }
+  });
+
 
   app.post<{
     Headers: {

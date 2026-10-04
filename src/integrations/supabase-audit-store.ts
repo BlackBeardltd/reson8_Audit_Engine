@@ -25,6 +25,18 @@ export interface SupabaseAuditStore {
   saveReport(jobId: string, tier: AuditReportTier, pdf: Uint8Array): Promise<void>;
   markCompleted(jobId: string): Promise<void>;
   markFailed(jobId: string, message: string): Promise<void>;
+  getAuditStatus(jobId: string): Promise<{
+    jobId: string;
+    status: "queued" | "processing" | "completed" | "failed";
+    errorMessage?: string | null;
+    sample: { available: boolean; version?: number };
+    full: { available: boolean; version?: number; locked: boolean };
+  }>;
+  getAuditReport(jobId: string, tier: "sample" | "full", ownerId?: string): Promise<{
+    bytes: Uint8Array;
+    contentType: string;
+    filename: string;
+  }>;
 }
 
 export function createSupabaseAuditStore(
@@ -286,6 +298,80 @@ export function createSupabaseAuditStore(
       const { error } = await admin.from("audit_jobs").update({ status: "completed", completed_at: new Date().toISOString(), error_code: null, error_message: null }).eq("id", jobId);
       if (error) throw new Error(`Unable to complete audit job: ${error.message}`);
       await event(jobId, "audit_completed", "completed");
+    },
+    async getAuditStatus(jobId) {
+      const { data: job, error: jobError } = await admin
+        .from("audit_jobs")
+        .select("id,status,error_message")
+        .eq("id", jobId)
+        .maybeSingle();
+      if (jobError) throw new Error(`Unable to read audit status: ${jobError.message}`);
+      if (!job) throw new Error("Audit job not found");
+
+      const { data: reports, error: reportError } = await admin
+        .from("audit_reports")
+        .select("tier,version,access_status")
+        .eq("audit_job_id", jobId)
+        .order("version", { ascending: false });
+      if (reportError) throw new Error(`Unable to read audit reports: ${reportError.message}`);
+
+      const latest = new Map<string, { version: number; access_status: string }>();
+      for (const report of reports ?? []) {
+        if (!latest.has(report.tier)) {
+          latest.set(report.tier, { version: Number(report.version), access_status: String(report.access_status) });
+        }
+      }
+
+      const sample = latest.get("sample");
+      const full = latest.get("full");
+      return {
+        jobId,
+        status: job.status as "queued" | "processing" | "completed" | "failed",
+        errorMessage: job.error_message as string | null,
+        sample: sample ? { available: true, version: sample.version } : { available: false },
+        full: full
+          ? { available: true, version: full.version, locked: full.access_status === "locked" }
+          : { available: false, locked: true },
+      };
+    },
+    async getAuditReport(jobId, tier, ownerId) {
+      const { data: job, error: jobError } = await admin
+        .from("audit_jobs")
+        .select("id,owner_id")
+        .eq("id", jobId)
+        .maybeSingle();
+      if (jobError) throw new Error(`Unable to read audit job: ${jobError.message}`);
+      if (!job) throw new Error("Audit job not found");
+
+      if (tier === "full" && job.owner_id !== ownerId) {
+        throw new Error("Full report access denied");
+      }
+
+      const { data: report, error: reportError } = await admin
+        .from("audit_reports")
+        .select("version,storage_path,content_type,access_status")
+        .eq("audit_job_id", jobId)
+        .eq("tier", tier)
+        .order("version", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (reportError) throw new Error(`Unable to read audit report: ${reportError.message}`);
+      if (!report) throw new Error("Report not found");
+      if (tier === "full" && report.access_status === "locked") {
+        // Owner access is server-authorized above; locked status remains intact for external prospects.
+        if (job.owner_id !== ownerId) throw new Error("Full report access denied");
+      }
+
+      const { data, error: downloadError } = await admin.storage
+        .from("audit-reports")
+        .download(report.storage_path);
+      if (downloadError || !data) throw new Error(`Unable to download audit report: ${downloadError?.message ?? "not found"}`);
+
+      return {
+        bytes: new Uint8Array(await data.arrayBuffer()),
+        contentType: report.content_type as string,
+        filename: `reson8-audit-${jobId}-${tier}-v${report.version}.pdf`,
+      };
     },
     async markFailed(jobId, message) {
       const { error } = await admin.from("audit_jobs").update({ status: "failed", completed_at: new Date().toISOString(), error_code: "AUDIT_PROCESSING_FAILED", error_message: message }).eq("id", jobId);

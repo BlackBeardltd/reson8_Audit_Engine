@@ -121,9 +121,13 @@
             <div class="result-grid">
               <div><span>JOB ID</span><strong id="jobId">—</strong></div>
               <div><span>SERVER HASH</span><strong id="serverHash">—</strong></div>
-              <div><span>STATUS</span><strong class="queued">QUEUED</strong></div>
+              <div><span>STATUS</span><strong class="queued" id="auditStatus">QUEUED</strong></div>
             </div>
-            <p>Your recording is now in the private processing queue. Recognition, measurement and reconciliation run as separate evidence stages.</p>
+            <p id="resultMessage">Your recording is now in the private processing queue. Recognition, measurement and reconciliation run as separate evidence stages.</p>
+            <div class="report-actions hidden" id="reportActions">
+              <a class="primary-btn" id="sampleReportLink" href="#" download>Download sample report <b>↓</b></a>
+              <a class="ghost-btn hidden" id="fullReportLink" href="#" download>Download full report <b>↓</b></a>
+            </div>
           </div>
         </div>
 
