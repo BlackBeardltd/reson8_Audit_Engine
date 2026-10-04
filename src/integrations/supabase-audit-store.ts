@@ -2,9 +2,10 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { CreateAuditJobDependencies } from "../jobs/create-audit-job.js";
 import type { AuditJobRecord } from "../jobs/process-audit-job.js";
 import type { AuditRecognition } from "../providers/audd/normalize.js";
-import { collectCatalogMetadata, type CatalogMetadata } from "../providers/dsp/catalog.js";
+import { type CatalogMetadata } from "../providers/dsp/catalog.js";
 import { buildSongEvidence } from "../jobs/song-evidence.js";
 import type { SonicDnaFeatures } from "../audio/sonic-dna.js";
+import type { ArAssessment } from "../providers/groq/client.js";
 
 export interface SupabaseAuditStore {
   admin: SupabaseClient;
@@ -18,6 +19,7 @@ export interface SupabaseAuditStore {
   saveEvidence(jobId: string, recognition: AuditRecognition): Promise<void>;
   saveCatalogMetadata(jobId: string, metadata: CatalogMetadata): Promise<void>;
   saveSonicDna(jobId: string, dna: SonicDnaFeatures): Promise<void>;
+  saveAssessment(jobId: string, assessment: ArAssessment): Promise<void>;
   markCompleted(jobId: string): Promise<void>;
   markFailed(jobId: string, message: string): Promise<void>;
 }
@@ -44,7 +46,8 @@ export function createSupabaseAuditStore(
   };
 
   const event = async (jobId: string, eventType: string, status: string, message?: string, payload: Record<string, unknown> = {}) => {
-    await admin.from("audit_events").insert({ audit_job_id: jobId, event_type: eventType, status, message, payload });
+    const { error } = await admin.from("audit_events").insert({ audit_job_id: jobId, event_type: eventType, status, message, payload });
+    if (error) throw new Error(`Unable to write audit event: ${error.message}`);
   };
 
   const resolvePublicOwnerId = async (): Promise<string> => {
@@ -138,8 +141,7 @@ export function createSupabaseAuditStore(
       if (queued.source_type === "master" && !queued.source_audio_path) return null;
       if (queued.source_type === "dsp_link" && !queued.catalog_url) return null;
       const { data: claimed, error: claimError } = await admin
-        .from("audit_jobs")
-        .update({ status: "processing", started_at: new Date().toISOString() })
+        .from("audit_jobs").update({ status: "processing", started_at: new Date().toISOString() })
         .eq("id", queued.id).eq("status", "queued")
         .select("id,owner_id,source_audio_path,mime_type,source_type,catalog_url,status").maybeSingle();
       if (claimError) throw new Error(`Unable to claim audit job: ${claimError.message}`);
@@ -181,9 +183,7 @@ export function createSupabaseAuditStore(
     },
     async saveRecognition(jobId, recognition) {
       const row = {
-        audit_job_id: jobId,
-        provider: "audd",
-        matched: recognition.matched,
+        audit_job_id: jobId, provider: "audd", matched: recognition.matched,
         artist: recognition.matched ? recognition.artist ?? null : null,
         title: recognition.matched ? recognition.title ?? null : null,
         album: recognition.matched ? recognition.album ?? null : null,
@@ -221,6 +221,23 @@ export function createSupabaseAuditStore(
       if (error) throw new Error(`Unable to save Sonic DNA: ${error.message}`);
       await admin.from("audit_jobs").update({ duration_seconds: dna.durationSeconds }).eq("id", jobId);
       await event(jobId, "sonic_dna", "completed", undefined, { analysisVersion: "audit-engine-0.1.0" });
+    },
+    async saveAssessment(jobId, assessment) {
+      const { error } = await admin.from("audit_assessments").upsert({
+        audit_job_id: jobId,
+        provider: "groq",
+        model: process.env.GROQ_MODEL ?? "llama-3.3-70b-versatile",
+        prompt_version: "audit-ar-v1",
+        status: "completed",
+        assessment,
+      }, { onConflict: "audit_job_id" });
+      if (error) throw new Error(`Unable to save A&R assessment: ${error.message}`);
+      await event(jobId, "ar_assessment", "completed", undefined, {
+        provider: "groq",
+        model: process.env.GROQ_MODEL ?? "llama-3.3-70b-versatile",
+        promptVersion: "audit-ar-v1",
+        confidence: assessment.confidence,
+      });
     },
     async markCompleted(jobId) {
       const { error } = await admin.from("audit_jobs").update({ status: "completed", completed_at: new Date().toISOString(), error_code: null, error_message: null }).eq("id", jobId);
