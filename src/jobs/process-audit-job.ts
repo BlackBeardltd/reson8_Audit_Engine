@@ -1,5 +1,6 @@
 import type { AuditRecognition } from "../providers/audd/normalize.js";
 import type { CatalogMetadata } from "../providers/dsp/catalog.js";
+import type { ArAssessment } from "../providers/groq/client.js";
 import { analyzePcm, type SonicDnaFeatures } from "../audio/sonic-dna.js";
 
 export interface AuditJobRecord {
@@ -15,7 +16,7 @@ export interface AuditJobRecord {
 export interface AuditProcessorDependencies {
   getJob(jobId: string): Promise<AuditJobRecord | null>;
   markProcessing(jobId: string): Promise<void>;
-  collectCatalogMetadata(url: string): Promise<import("../providers/dsp/catalog.js").CatalogMetadata>;
+  collectCatalogMetadata(url: string): Promise<CatalogMetadata>;
   recognizeUrl(url: string): Promise<AuditRecognition>;
   downloadMaster(path: string): Promise<Uint8Array>;
   createRecognitionSample(master: Uint8Array, mimeType: string): Promise<Uint8Array>;
@@ -25,8 +26,69 @@ export interface AuditProcessorDependencies {
   saveCatalogMetadata(jobId: string, metadata: CatalogMetadata): Promise<void>;
   decode(bytes: Uint8Array, mimeType?: string): Promise<{ samples: Float32Array; sampleRate: number; channels: number }>;
   saveSonicDna(jobId: string, dna: SonicDnaFeatures): Promise<void>;
+  generateAssessment(input: {
+    evidence: Record<string, unknown>;
+    sonicDna: Record<string, unknown> | null;
+    catalogMetadata?: Record<string, unknown> | null;
+  }): Promise<ArAssessment>;
+  saveAssessment(jobId: string, assessment: ArAssessment): Promise<void>;
   markCompleted(jobId: string): Promise<void>;
   markFailed(jobId: string, message: string): Promise<void>;
+}
+
+function recognitionEvidence(recognition: AuditRecognition): Record<string, unknown> {
+  return {
+    matched: recognition.matched,
+    artist: recognition.artist ?? null,
+    title: recognition.title ?? null,
+    album: recognition.album ?? null,
+    releaseDate: recognition.releaseDate ?? null,
+    label: recognition.label ?? null,
+    isrc: recognition.isrc ?? null,
+    spotifyId: recognition.spotifyId ?? null,
+    appleMusicId: recognition.appleMusicId ?? null,
+    musicbrainzId: recognition.musicbrainzId ?? null,
+    confidence: recognition.matched ? 1 : null,
+    source: "audd",
+  };
+}
+
+function catalogEvidence(metadata: CatalogMetadata): Record<string, unknown> {
+  return {
+    status: metadata.evidenceStatus,
+    platform: metadata.platform,
+    artist: metadata.artist,
+    title: metadata.title,
+    album: metadata.album,
+    releaseDate: metadata.releaseDate,
+    isrc: metadata.isrc,
+    upc: metadata.upc,
+    label: metadata.label,
+    genre: metadata.genre,
+    externalIds: metadata.externalIds,
+    canonicalUrl: metadata.canonicalUrl,
+    source: metadata.platform,
+  };
+}
+
+function dnaEvidence(dna: SonicDnaFeatures): Record<string, unknown> {
+  return {
+    sampleRate: dna.sampleRate,
+    channels: dna.channels,
+    durationSeconds: dna.durationSeconds,
+    bpm: dna.bpm,
+    key: dna.key,
+    mode: dna.mode,
+    loudnessLufs: dna.loudnessLufs,
+    rmsEnergy: dna.rmsEnergy,
+    dynamicRangeDb: dna.dynamicRangeDb,
+    spectralCentroidHz: dna.spectralCentroidHz,
+    spectralBandwidthHz: dna.spectralBandwidthHz,
+    spectralRolloffHz: dna.spectralRolloffHz,
+    zeroCrossingRate: dna.zeroCrossingRate,
+    moodTags: dna.moodTags,
+    genreContext: dna.genreContext,
+  };
 }
 
 export async function processAuditJob(
@@ -44,15 +106,23 @@ export async function processAuditJob(
       if (!job.catalogUrl) throw new Error("Catalog URL is missing");
       const metadata = await deps.collectCatalogMetadata(job.catalogUrl);
       await deps.saveCatalogMetadata(jobId, metadata);
+
+      let recognition: AuditRecognition | null = null;
       if (metadata.previewUrl) {
         try {
-          const recognition = await deps.recognizeUrl(metadata.previewUrl);
+          recognition = await deps.recognizeUrl(metadata.previewUrl);
           await deps.saveRecognition(jobId, recognition);
           await deps.saveEvidence(jobId, recognition);
         } catch {
-          // Provider preview recognition is enrichment; catalog metadata remains authoritative evidence.
+          // Preview recognition is enrichment; catalog metadata remains authoritative evidence.
         }
       }
+
+      await deps.saveAssessment(jobId, await deps.generateAssessment({
+        evidence: recognition ? recognitionEvidence(recognition) : catalogEvidence(metadata),
+        sonicDna: null,
+        catalogMetadata: catalogEvidence(metadata),
+      }));
       await deps.markCompleted(jobId);
       return { status: "completed" };
     }
@@ -66,12 +136,19 @@ export async function processAuditJob(
 
     const decoded = await deps.decode(master, job.mimeType);
     const dna = analyzePcm(decoded.samples, decoded.sampleRate);
-    await deps.saveSonicDna(jobId, {
+    const normalizedDna = {
       ...dna,
       sampleRate: decoded.sampleRate,
       channels: decoded.channels,
       durationSeconds: decoded.samples.length / decoded.sampleRate,
-    });
+    };
+    await deps.saveSonicDna(jobId, normalizedDna);
+
+    await deps.saveAssessment(jobId, await deps.generateAssessment({
+      evidence: recognitionEvidence(recognition),
+      sonicDna: dnaEvidence(normalizedDna),
+      catalogMetadata: null,
+    }));
 
     await deps.markCompleted(jobId);
     return { status: "completed" };
