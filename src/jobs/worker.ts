@@ -2,6 +2,7 @@ import { createServer } from "node:http";
 import { createAudioDecoder } from "../audio/decoder.js";
 import { createRecognitionSample } from "../audio/recognition-sample.js";
 import { AuddClient } from "../providers/audd/client.js";
+import { collectCatalogMetadata } from "../providers/dsp/catalog.js";
 import { createSupabaseAuditStore } from "../integrations/supabase-audit-store.js";
 import { processAuditJob, type AuditProcessorDependencies } from "./process-audit-job.js";
 
@@ -21,15 +22,20 @@ export async function processNextQueuedAudit(): Promise<{ jobId: string; status:
       ownerId: job.ownerId,
       sourceAudioPath: job.sourceAudioPath,
       mimeType: job.mimeType,
+      sourceType: job.sourceType,
+      catalogUrl: job.catalogUrl,
       status: "queued",
     }),
     markProcessing: async (jobId) => store.markProcessing(jobId),
     downloadMaster: async (path) => store.downloadMaster(path),
     createRecognitionSample,
     recognize: (sample) => audd.recognize(sample),
+    recognizeUrl: (url) => audd.recognizeUrl(url),
+    collectCatalogMetadata,
     saveRecognition: async (jobId, recognition) => store.saveRecognition(jobId, recognition),
     saveSonicDna: async (jobId, dna) => store.saveSonicDna(jobId, dna),
     saveEvidence: async (jobId, recognition) => store.saveEvidence(jobId, recognition),
+    saveCatalogMetadata: async (jobId, metadata) => store.saveCatalogMetadata(jobId, metadata),
     decode: async (bytes) => decoder.decode(bytes),
     markCompleted: async (jobId) => store.markCompleted(jobId),
     markFailed: async (jobId, message) => store.markFailed(jobId, message),
