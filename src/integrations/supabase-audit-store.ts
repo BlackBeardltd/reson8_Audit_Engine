@@ -97,16 +97,19 @@ export function createSupabaseAuditStore(
       return new Uint8Array(await data.arrayBuffer());
     },
     async saveRecognition(jobId, recognition) {
-      const row = recognition.matched ? {
-        audit_job_id: jobId, provider: "audd", matched: true,
-        artist: recognition.artist ?? null, title: recognition.title ?? null, album: recognition.album ?? null,
-        release_date: recognition.releaseDate ?? null, label: recognition.label ?? null, isrc: recognition.isrc ?? null,
-        timecode: recognition.timecode ?? null, song_link: recognition.songLink ?? recognition.spotifyUrl ?? null,
-        raw_response: recognition,
-      } : {
-        audit_job_id: jobId, provider: "audd", matched: false,
-        artist: null, title: null, album: null, release_date: null, label: null, isrc: null,
-        timecode: null, song_link: null, raw_response: recognition,
+      const row = {
+        audit_job_id: jobId,
+        provider: "audd",
+        matched: recognition.matched,
+        artist: recognition.matched ? recognition.artist ?? null : null,
+        title: recognition.matched ? recognition.title ?? null : null,
+        album: recognition.matched ? recognition.album ?? null : null,
+        release_date: recognition.matched ? recognition.releaseDate ?? null : null,
+        label: recognition.matched ? recognition.label ?? null : null,
+        isrc: recognition.matched ? recognition.isrc ?? null : null,
+        timecode: recognition.matched ? recognition.timecode ?? null : null,
+        song_link: recognition.matched ? recognition.songLink ?? recognition.spotifyUrl ?? null : null,
+        raw_response: recognition as unknown as Record<string, unknown>,
       };
       const { error } = await admin.from("recognition_results").upsert(row, { onConflict: "audit_job_id,provider" });
       if (error) throw new Error(`Unable to save recognition: ${error.message}`);
