@@ -52,8 +52,12 @@ export function analyzePcm(samples: Float32Array, sampleRate: number): SonicDnaF
   let spectralWeight = 0;
 
   for (let start = 0; start + windowSize <= samples.length; start += half) {
-    for (let bin = 1; bin < windowSize / 2; bin++) {
-      const frequency = (bin * sampleRate) / windowSize;
+    // The inner loop samples every 8th PCM frame for bounded CPU cost.
+    // Treat that decimated stream as sampleRate/8, so its Nyquist range and
+    // frequency-bin mapping remain physically correct.
+    const decimation = 8;
+    for (let bin = 1; bin < windowSize / (2 * decimation); bin++) {
+      const frequency = (bin * sampleRate * decimation) / windowSize;
       let real = 0;
       let imag = 0;
       for (let n = 0; n < windowSize; n += 8) {
