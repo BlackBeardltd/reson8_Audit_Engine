@@ -1,6 +1,5 @@
 import type { AuditRecognition } from "../providers/audd/normalize.js";
 import { analyzePcm, type SonicDnaFeatures } from "../audio/sonic-dna.js";
-import type { AudioDecoder } from "../audio/decoder.js";
 
 export interface AuditJobRecord {
   id: string;
@@ -17,6 +16,7 @@ export interface AuditProcessorDependencies {
   createRecognitionSample(master: Uint8Array, mimeType: string): Promise<Uint8Array>;
   recognize(sample: Uint8Array): Promise<AuditRecognition>;
   saveRecognition(jobId: string, recognition: AuditRecognition): Promise<void>;
+  saveEvidence(jobId: string, recognition: AuditRecognition): Promise<void>;
   decode(bytes: Uint8Array, mimeType?: string): Promise<{ samples: Float32Array; sampleRate: number; channels: number }>;
   saveSonicDna(jobId: string, dna: SonicDnaFeatures): Promise<void>;
   markCompleted(jobId: string): Promise<void>;
@@ -38,16 +38,16 @@ export async function processAuditJob(
     const sample = await deps.createRecognitionSample(master, job.mimeType);
     const recognition = await deps.recognize(sample);
     await deps.saveRecognition(jobId, recognition);
+    await deps.saveEvidence(jobId, recognition);
 
     const decoded = await deps.decode(master, job.mimeType);
     const dna = analyzePcm(decoded.samples, decoded.sampleRate);
-    const measuredDna = {
+    await deps.saveSonicDna(jobId, {
       ...dna,
       sampleRate: decoded.sampleRate,
       channels: decoded.channels,
       durationSeconds: decoded.samples.length / decoded.sampleRate,
-    };
-    await deps.saveSonicDna(jobId, measuredDna);
+    });
 
     await deps.markCompleted(jobId);
     return { status: "completed" };
