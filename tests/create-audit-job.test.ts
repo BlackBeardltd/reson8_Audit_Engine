@@ -18,7 +18,7 @@ describe("createAuditJob", () => {
         createJob: async (input) => {
           calls.push("job");
           expect(input.ownerId).toBe("11111111-1111-1111-1111-111111111111");
-          expect(input.sha256).toBe("039058c6f2c0cb492c533b0a4d14ef3a3d6f6d7c5c0b1d0c0f1f5f1f1b6f8f5b");
+          expect(input.sha256).toBe("039058c6f2c0cb492c533b0a4d14ef77cc0f78abccced5287d84a1a2011cfb81");
           return "job-123";
         },
         uploadMaster: async (path) => {
