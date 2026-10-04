@@ -49,6 +49,12 @@ function startHealthServer(): void {
   const host = process.env.HOST ?? "0.0.0.0";
 
   createServer((request, response) => {
+    if (request.url === "/") {
+      response.writeHead(302, { location: "https://reson8-audit-engine.onrender.com/" });
+      response.end();
+      return;
+    }
+
     if (request.url === "/health") {
       response.writeHead(200, { "content-type": "application/json" });
       response.end(JSON.stringify({
