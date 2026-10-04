@@ -37,8 +37,16 @@ export interface AuditProcessorDependencies {
 }
 
 function recognitionEvidence(recognition: AuditRecognition): Record<string, unknown> {
+  if (!recognition.matched) {
+    return {
+      matched: false,
+      confidence: null,
+      source: "audd",
+    };
+  }
+
   return {
-    matched: recognition.matched,
+    matched: true,
     artist: recognition.artist ?? null,
     title: recognition.title ?? null,
     album: recognition.album ?? null,
@@ -48,7 +56,7 @@ function recognitionEvidence(recognition: AuditRecognition): Record<string, unkn
     spotifyId: recognition.spotifyId ?? null,
     appleMusicId: recognition.appleMusicId ?? null,
     musicbrainzId: recognition.musicbrainzId ?? null,
-    confidence: recognition.matched ? 1 : null,
+    confidence: 1,
     source: "audd",
   };
 }
