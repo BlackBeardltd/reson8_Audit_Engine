@@ -52,8 +52,13 @@ export async function createAuditJob(
   } catch (error) {
     try {
       await deps.deleteMaster(sourceAudioPath);
-    } finally {
+    } catch {
+      // Preserve the original pipeline error; cleanup failure is operational telemetry.
+    }
+    try {
       await deps.deleteJob?.(jobId);
+    } catch {
+      // Preserve the original pipeline error; cleanup failure is operational telemetry.
     }
     throw error;
   }
