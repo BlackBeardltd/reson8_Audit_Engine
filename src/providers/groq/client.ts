@@ -57,7 +57,7 @@ export class GroqClient implements GroqAssessmentClient {
 
   constructor(
     apiKey = process.env.GROQ_API_KEY ?? process.env.GROQ_API,
-    model = process.env.GROQ_MODEL ?? "llama-3.3-70b-versatile",
+    model = process.env.GROQ_MODEL ?? "openai/gpt-oss-120b",
     fetchImpl: typeof fetch = fetch,
   ) {
     if (!apiKey) throw new Error("GROQ_API is required");
