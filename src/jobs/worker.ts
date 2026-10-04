@@ -15,7 +15,7 @@ export async function processNextQueuedAudit(): Promise<{ jobId: string; status:
   const job = await store.claimNextQueuedJob();
   if (!job) return null;
 
-  const audd = new AuddClient();
+  const audd = process.env.AUDD_API || process.env.AUDD_API_TOKEN ? new AuddClient() : null;
   const decoder = createAudioDecoder();
   const groq = new GroqClient();
 
@@ -32,8 +32,8 @@ export async function processNextQueuedAudit(): Promise<{ jobId: string; status:
     markProcessing: async (jobId) => store.markProcessing(jobId),
     downloadMaster: async (path) => store.downloadMaster(path),
     createRecognitionSample,
-    recognize: (sample) => audd.recognize(sample),
-    recognizeUrl: (url) => audd.recognizeUrl(url),
+    recognize: (sample) => audd ? audd.recognize(sample) : Promise.resolve({ matched: false }),
+    recognizeUrl: (url) => audd ? audd.recognizeUrl(url) : Promise.resolve({ matched: false }),
     collectCatalogMetadata,
     saveRecognition: async (jobId, recognition) => store.saveRecognition(jobId, recognition),
     saveSonicDna: async (jobId, dna) => store.saveSonicDna(jobId, dna),
