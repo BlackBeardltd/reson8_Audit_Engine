@@ -89,12 +89,14 @@ export function createSupabaseAuditStore(
         .eq("status", "queued")
         .order("created_at", { ascending: true }).limit(1).maybeSingle();
       if (selectError) throw new Error(`Unable to read queued audits: ${selectError.message}`);
-      if (!queued?.source_audio_path) return null;
+      if (!queued) return null;
+      if (queued.source_type === "master" && !queued.source_audio_path) return null;
+      if (queued.source_type === "dsp_link" && !queued.catalog_url) return null;
       const { data: claimed, error: claimError } = await admin
         .from("audit_jobs")
         .update({ status: "processing", started_at: new Date().toISOString() })
         .eq("id", queued.id).eq("status", "queued")
-        .select("id,owner_id,source_audio_path,mime_type,status").maybeSingle();
+        .select("id,owner_id,source_audio_path,mime_type,source_type,catalog_url,status").maybeSingle();
       if (claimError) throw new Error(`Unable to claim audit job: ${claimError.message}`);
       if (!claimed) return null;
       await event(claimed.id, "processing_claimed", "processing");
