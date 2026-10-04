@@ -65,6 +65,11 @@ describe("processAuditJob", () => {
         return assessment;
       },
       saveAssessment: async () => events.push("assessment-saved"),
+      generateReport: async (_input, tier) => {
+        events.push(`report-${tier}`);
+        return new Uint8Array([37, 80, 68, 70, 45]);
+      },
+      saveReport: async (_jobId, tier) => events.push(`report-saved-${tier}`),
       markCompleted: async () => events.push("completed"),
       markFailed: async () => events.push("failed"),
     });
@@ -77,6 +82,10 @@ describe("processAuditJob", () => {
       "dna",
       "assessment",
       "assessment-saved",
+      "report-sample",
+      "report-saved-sample",
+      "report-full",
+      "report-saved-full",
       "completed",
     ]);
   });
@@ -107,6 +116,8 @@ describe("processAuditJob", () => {
       saveSonicDna: async () => {},
       generateAssessment: async () => assessment,
       saveAssessment: async () => {},
+      generateReport: async () => new Uint8Array(),
+      saveReport: async () => {},
       markCompleted: async () => {},
       markFailed: async (_jobId, message) => {
         failure = message;
