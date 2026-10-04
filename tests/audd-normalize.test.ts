@@ -33,3 +33,20 @@ describe("normalizeAuddRecognition", () => {
     expect(normalizeAuddRecognition(null)).toEqual({ matched: false });
   });
 });
+
+
+it("preserves provider identifiers needed for reconciliation", () => {
+  const result = normalizeAuddRecognition({
+    artist: "Artist",
+    title: "Song",
+    spotify: { external_urls: { spotify: "https://open.spotify.com/track/abc" } },
+    apple_music: { url: "https://music.apple.com/us/song/123" },
+    musicbrainz: { recording: { id: "mbid" } },
+  } as never);
+
+  expect(result).toMatchObject({
+    matched: true,
+    spotifyUrl: "https://open.spotify.com/track/abc",
+    appleMusicUrl: "https://music.apple.com/us/song/123",
+  });
+});
