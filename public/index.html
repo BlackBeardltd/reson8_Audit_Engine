@@ -46,11 +46,20 @@
         <div class="primary-column">
           <div class="section-heading">
             <div>
-              <p class="kicker">SOURCE MASTER</p>
-              <h2>Upload the recording</h2>
+              <p class="kicker">AUDIT SOURCE</p>
+              <h2>Choose your evidence source</h2>
             </div>
-            <span class="limit">MP3 · WAV · FLAC · AAC · OGG · M4A · 50 MB max</span>
+            <span class="limit">Master + DSP catalog can be combined</span>
           </div>
+          <div class="source-tabs" role="tablist" aria-label="Audit source">
+            <button class="source-tab active" id="masterTab" type="button">MASTER TRACK <small>Measured Sonic DNA</small></button>
+            <button class="source-tab" id="dspTab" type="button">DSP / CATALOG LINK <small>Identity + catalog evidence</small></button>
+          </div>
+          <section id="masterSource">
+            <div class="section-heading compact">
+              <div><p class="kicker">SOURCE MASTER</p><h3>Upload the recording</h3></div>
+              <span class="limit">MP3 · WAV · FLAC · AAC · OGG · M4A · 50 MB max</span>
+            </div>
 
           <label class="dropzone" id="dropzone" for="audioFile" tabindex="0">
             <input id="audioFile" type="file" accept="audio/mpeg,audio/wav,audio/x-wav,audio/flac,audio/aac,audio/ogg,audio/mp4,audio/x-m4a" />
@@ -87,11 +96,24 @@
             </div>
           </div>
 
+          </section>
+
+          <section id="dspSource" class="hidden">
+            <div class="section-heading compact"><div><p class="kicker">DSP / CATALOG</p><h3>Ingest an existing release link</h3></div><span class="limit">Spotify · Apple Music · YouTube · Deezer · Tidal</span></div>
+            <div class="catalog-form">
+              <label for="catalogUrl">DSP or catalog URL</label>
+              <div class="catalog-input-row"><input id="catalogUrl" type="url" placeholder="https://open.spotify.com/track/… or https://music.apple.com/…" autocomplete="off" /><button id="detectCatalog" type="button" class="ghost-btn">Detect</button></div>
+              <div class="catalog-platform" id="catalogPlatform">Platform not detected</div>
+              <div class="catalog-preview hidden" id="catalogPreview"></div>
+            </div>
+            <div class="preflight catalog-preflight"><div class="preflight-title"><span>CATALOG PREFLIGHT</span><strong id="catalogState">Waiting for URL</strong></div><div class="checks"><div class="check" id="catalogCheck"><i></i><span>Supported catalog URL</span><b>—</b></div></div></div>
+          </section>
+
           <div class="action-row">
             <button class="primary-btn" id="submitAudit" type="button" disabled>
               <span>Start A&R audit</span><b>→</b>
             </button>
-            <p id="actionMessage">Select a valid master to continue.</p>
+            <p id="actionMessage">Select a valid master or DSP/catalog link to continue.</p>
           </div>
 
           <div class="result-panel hidden" id="resultPanel" aria-live="polite">
