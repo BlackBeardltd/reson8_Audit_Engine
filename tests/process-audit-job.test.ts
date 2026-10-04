@@ -22,6 +22,7 @@ describe("processAuditJob", () => {
         spotifyUrl: "https://open.spotify.com/track/abc",
       }),
       saveRecognition: async () => events.push("recognition"),
+      saveEvidence: async () => events.push("evidence"),
       decode: async () => ({
         samples: new Float32Array([0, 0.1, -0.1, 0]),
         sampleRate: 44100,
@@ -36,7 +37,7 @@ describe("processAuditJob", () => {
     });
 
     expect(result.status).toBe("completed");
-    expect(events).toEqual(["processing", "recognition", "dna", "completed"]);
+    expect(events).toEqual(["processing", "recognition", "evidence", "dna", "completed"]);
   });
 
   it("marks the job failed and preserves the error when processing fails", async () => {
@@ -56,6 +57,7 @@ describe("processAuditJob", () => {
       createRecognitionSample: async () => new Uint8Array(),
       recognize: async () => ({ matched: false as const }),
       saveRecognition: async () => {},
+      saveEvidence: async () => {},
       decode: async () => {
         throw new Error("not reached");
       },
