@@ -1,19 +1,29 @@
 import { describe, expect, it } from "vitest";
 import { buildServer } from "../src/server.js";
 
+const OWNER_ID = "11111111-1111-1111-1111-111111111111";
+
+function deps() {
+  return {
+    ensureProfile: async () => {},
+    createJob: async () => "job-123",
+    createCatalogJob: async () => "catalog-job-123",
+    uploadMaster: async () => {},
+    setSourcePath: async () => {},
+    deleteMaster: async () => {},
+    deleteJob: async () => {},
+  };
+}
+
 describe("GET /", () => {
   it("serves the data-ingestion UI without authentication", async () => {
     const app = buildServer({
-      authenticate: async () => "11111111-1111-1111-1111-111111111111",
-      createJobDependencies: () => {
-        throw new Error("must not be called");
-      },
+      authenticate: async () => OWNER_ID,
+      resolvePublicOwnerId: async () => OWNER_ID,
+      createJobDependencies: () => { throw new Error("must not be called"); },
     });
 
-    const response = await app.inject({
-      method: "GET",
-      url: "/",
-    });
+    const response = await app.inject({ method: "GET", url: "/" });
 
     expect(response.statusCode).toBe(200);
     expect(response.headers["content-type"]).toContain("text/html");
@@ -26,16 +36,12 @@ describe("GET /", () => {
 describe("GET /health", () => {
   it("returns a healthy Audit Engine status without requiring authentication", async () => {
     const app = buildServer({
-      authenticate: async () => "11111111-1111-1111-1111-111111111111",
-      createJobDependencies: () => {
-        throw new Error("must not be called");
-      },
+      authenticate: async () => OWNER_ID,
+      resolvePublicOwnerId: async () => OWNER_ID,
+      createJobDependencies: () => { throw new Error("must not be called"); },
     });
 
-    const response = await app.inject({
-      method: "GET",
-      url: "/health",
-    });
+    const response = await app.inject({ method: "GET", url: "/health" });
 
     expect(response.statusCode).toBe(200);
     expect(response.json()).toEqual({
@@ -48,15 +54,12 @@ describe("GET /health", () => {
 });
 
 describe("POST /v1/audits", () => {
-  it("requires bearer authentication before reading the audit payload", async () => {
-    const app = buildServer({
-      authenticate: async () => "11111111-1111-1111-1111-111111111111",
-      createJobDependencies: () => {
-        throw new Error("must not be called");
-      },
-    });
-
-    const response = await app.inject({
+  it("accepts a public sample submission without a bearer session", async () => {
+    const response = await buildServer({
+      authenticate: async () => { throw new Error("must not authenticate public requests"); },
+      resolvePublicOwnerId: async () => OWNER_ID,
+      createJobDependencies: () => deps(),
+    }).inject({
       method: "POST",
       url: "/v1/audits",
       payload: Buffer.from([1, 2, 3]),
@@ -66,29 +69,21 @@ describe("POST /v1/audits", () => {
       },
     });
 
-    expect(response.statusCode).toBe(401);
-    expect(response.json()).toEqual({
-      error: "UNAUTHORIZED",
-      message: "Authorization token is required",
+    expect(response.statusCode).toBe(201);
+    expect(response.json()).toMatchObject({
+      jobId: "job-123",
+      status: "queued",
     });
-
-    await app.close();
   });
 
-  it("accepts a verified user and creates a queued audit job", async () => {
+  it("still accepts a verified user session when supplied", async () => {
     const response = await buildServer({
       authenticate: async (token) => {
         expect(token).toBe("token-123");
-        return "11111111-1111-1111-1111-111111111111";
+        return OWNER_ID;
       },
-      createJobDependencies: () => ({
-        ensureProfile: async () => {},
-        createJob: async () => "job-123",
-        uploadMaster: async () => {},
-        setSourcePath: async () => {},
-        deleteMaster: async () => {},
-        deleteJob: async () => {},
-      }),
+      resolvePublicOwnerId: async () => { throw new Error("must not use public owner"); },
+      createJobDependencies: () => deps(),
     }).inject({
       method: "POST",
       url: "/v1/audits",
@@ -104,6 +99,27 @@ describe("POST /v1/audits", () => {
     expect(response.json()).toMatchObject({
       jobId: "job-123",
       status: "queued",
+    });
+  });
+});
+
+describe("POST /v1/audits/catalog", () => {
+  it("accepts a public catalog submission without a bearer session", async () => {
+    const response = await buildServer({
+      authenticate: async () => { throw new Error("must not authenticate public requests"); },
+      resolvePublicOwnerId: async () => OWNER_ID,
+      createJobDependencies: () => deps(),
+    }).inject({
+      method: "POST",
+      url: "/v1/audits/catalog",
+      payload: { url: "https://open.spotify.com/track/3AcgT1ZcF0e9YknCUD269u" },
+    });
+
+    expect(response.statusCode).toBe(201);
+    expect(response.json()).toMatchObject({
+      jobId: "catalog-job-123",
+      status: "queued",
+      sourceType: "dsp_link",
     });
   });
 });
