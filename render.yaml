@@ -23,7 +23,7 @@ services:
       - key: GROQ_MODEL
         value: llama-3.3-70b-versatile
 
-  - type: worker
+  - type: web
     name: reson8-audit-worker
     runtime: node
     plan: starter
