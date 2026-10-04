@@ -13,7 +13,13 @@ export class AuddClient implements AuddRecognitionClient {
     const form = new FormData();
     form.set("api_token", this.apiToken!);
     form.set("return", "apple_music,spotify,musicbrainz");
-    form.set("file", new Blob([source], { type: "application/octet-stream" }), "recognition-sample");
+    const blobBytes = new Uint8Array(source.byteLength);
+    blobBytes.set(source);
+    form.set(
+      "file",
+      new Blob([blobBytes.buffer as ArrayBuffer], { type: "application/octet-stream" }),
+      "recognition-sample",
+    );
 
     const response = await fetch("https://api.audd.io/", {
       method: "POST",
