@@ -8,53 +8,38 @@ export async function createRecognitionSample(
   _mimeType: string,
   runner?: Runner,
 ): Promise<Uint8Array> {
-  if (runner) {
-    return runner([
-      "-hide_banner",
-      "-loglevel",
-      "error",
-      "-i",
-      "pipe:0",
-      "-t",
-      "30",
-      "-vn",
-      "-ac",
-      "1",
-      "-ar",
-      "16000",
-      "-f",
-      "wav",
-      "pipe:1",
-    ]);
-  }
+  const args = [
+    "-hide_banner",
+    "-loglevel",
+    "error",
+    "-i",
+    "pipe:0",
+    "-t",
+    "30",
+    "-vn",
+    "-ac",
+    "1",
+    "-ar",
+    "16000",
+    "-f",
+    "wav",
+    "pipe:1",
+  ];
 
-  if (!ffmpegPath) throw new Error("FFmpeg binary is unavailable");
+  if (runner) return runner(args);
+
+  const binary = ffmpegPath as unknown as string | null;
+  if (!binary) throw new Error("FFmpeg binary is unavailable");
 
   return new Promise((resolve, reject) => {
-    const ffmpeg = spawn(ffmpegPath!, [
-      "-hide_banner",
-      "-loglevel",
-      "error",
-      "-i",
-      "pipe:0",
-      "-t",
-      "30",
-      "-vn",
-      "-ac",
-      "1",
-      "-ar",
-      "16000",
-      "-f",
-      "wav",
-      "pipe:1",
-    ]);
+    const ffmpeg = spawn(binary, args, { stdio: ["pipe", "pipe", "pipe"] });
 
     const chunks: Buffer[] = [];
     let stderr = "";
     ffmpeg.stdout.on("data", (chunk: Buffer) => chunks.push(chunk));
     ffmpeg.stderr.on("data", (chunk: Buffer) => { stderr += chunk.toString(); });
     ffmpeg.on("error", reject);
-    ffmpeg.on("close", (code) => {
+    ffmpeg.on("close", (code: number | null) => {
       if (code !== 0) {
         reject(new Error(`Recognition sample extraction failed: ${stderr.trim() || `ffmpeg exited ${code}`}`));
         return;
