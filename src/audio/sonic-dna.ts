@@ -35,9 +35,15 @@ function percentile(sorted: number[], p: number): number {
 }
 
 export function analyzePcm(samples: Float32Array, sampleRate: number): SonicDnaFeatures {
-  const energy = rms(samples);
+  const maxAnalysisSamples = 3_000_000;
+  const stride = Math.max(1, Math.ceil(samples.length / maxAnalysisSamples));
+  const analysisSamples = stride === 1
+    ? samples
+    : Float32Array.from({ length: Math.ceil(samples.length / stride) }, (_, i) => samples[i * stride]);
+  const analysisSampleRate = sampleRate / stride;
+  const energy = rms(analysisSamples);
   let crossings = 0;
-  for (let i = 1; i < samples.length; i++) {
+  for (let i = 1; i < analysisSamples.length; i++) {
     if ((samples[i - 1] < 0 && samples[i] >= 0) || (samples[i - 1] >= 0 && samples[i] < 0)) crossings++;
   }
 
@@ -48,7 +54,7 @@ export function analyzePcm(samples: Float32Array, sampleRate: number): SonicDnaF
   const fftWindow = 2048;
   const decimation = 4;
   const bins = 128;
-  const availableWindows = Math.max(1, Math.floor((samples.length - fftWindow) / (fftWindow / 2)) + 1);
+  const availableWindows = Math.max(1, Math.floor((analysisSamples.length - fftWindow) / (fftWindow / 2)) + 1);
   const windowCount = Math.min(12, availableWindows);
   let centroidSum = 0;
   let bandwidthSum = 0;
@@ -60,19 +66,19 @@ export function analyzePcm(samples: Float32Array, sampleRate: number): SonicDnaF
     const start = windowCount === 1
       ? 0
       : Math.floor((windowIndex * (availableWindows - 1)) / (windowCount - 1)) * Math.floor(fftWindow / 2);
-    if (start + fftWindow > samples.length) continue;
+    if (start + fftWindow > analysisSamples.length) continue;
 
     const magnitudes: number[] = [];
     let total = 0;
     let weighted = 0;
 
     for (let bin = 1; bin <= bins; bin++) {
-      const frequency = (bin * sampleRate) / (fftWindow * decimation);
+      const frequency = (bin * analysisSampleRate) / (fftWindow * decimation);
       let real = 0;
       let imag = 0;
       for (let n = 0; n < fftWindow; n += decimation) {
         const angle = (2 * Math.PI * bin * n) / fftWindow;
-        const value = samples[start + n];
+        const value = analysisSamples[start + n];
         real += value * Math.cos(angle);
         imag -= value * Math.sin(angle);
       }
@@ -91,7 +97,7 @@ export function analyzePcm(samples: Float32Array, sampleRate: number): SonicDnaF
     const rolloffTarget = total * 0.85;
 
     for (let i = 0; i < magnitudes.length; i++) {
-      const frequency = ((i + 1) * sampleRate) / (fftWindow * decimation);
+      const frequency = ((i + 1) * analysisSampleRate) / (fftWindow * decimation);
       variance += ((frequency - centroid) ** 2) * magnitudes[i];
       cumulative += magnitudes[i];
       if (!rolloffFrequency && cumulative >= rolloffTarget) rolloffFrequency = frequency;
@@ -109,11 +115,11 @@ export function analyzePcm(samples: Float32Array, sampleRate: number): SonicDnaF
   const spectralRolloffHz = analyzedWindows ? rolloffSum / analyzedWindows : 0;
 
   const windowRms: number[] = [];
-  const frame = Math.max(256, Math.floor(sampleRate * 0.05));
-  for (let start = 0; start < samples.length; start += frame) {
-    const end = Math.min(samples.length, start + frame);
+  const frame = Math.max(256, Math.floor(analysisSampleRate * 0.05));
+  for (let start = 0; start < analysisSamples.length; start += frame) {
+    const end = Math.min(analysisSamples.length, start + frame);
     let sum = 0;
-    for (let i = start; i < end; i++) sum += samples[i] * samples[i];
+    for (let i = start; i < end; i++) sum += analysisSamples[i] * analysisSamples[i];
     windowRms.push(Math.sqrt(sum / Math.max(1, end - start)));
   }
   windowRms.sort((a, b) => a - b);
@@ -123,12 +129,12 @@ export function analyzePcm(samples: Float32Array, sampleRate: number): SonicDnaF
   const lufs = 20 * Math.log10(Math.max(EPSILON, energy)) - 0.691;
   const dynamicRangeDb = 20 * Math.log10(p95 / p10);
 
-  const bpm = estimateTempo(samples, sampleRate);
+  const bpm = estimateTempo(analysisSamples, analysisSampleRate);
   const tags: string[] = [];
   if (energy > 0.15) tags.push("High Energy");
   else if (energy < 0.04) tags.push("Low Energy");
   else tags.push("Moderate Energy");
-  if (crossings / Math.max(1, samples.length) > 0.08) tags.push("Bright/Noisy Texture");
+  if (crossings / Math.max(1, analysisSamples.length) > 0.08) tags.push("Bright/Noisy Texture");
   if (spectralCentroidHz > 3000) tags.push("Bright Timbre");
   else if (spectralCentroidHz < 1000) tags.push("Dark Timbre");
 
