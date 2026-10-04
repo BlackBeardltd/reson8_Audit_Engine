@@ -57,7 +57,7 @@ export function analyzePcm(samples: Float32Array, sampleRate: number): SonicDnaF
     // frequency-bin mapping remain physically correct.
     const decimation = 8;
     for (let bin = 1; bin < windowSize / (2 * decimation); bin++) {
-      const frequency = (bin * sampleRate * decimation) / windowSize;
+      const frequency = (bin * sampleRate) / windowSize;
       let real = 0;
       let imag = 0;
       for (let n = 0; n < windowSize; n += 8) {
