@@ -21,7 +21,7 @@ services:
       - key: GROQ_API
         sync: false
       - key: GROQ_MODEL
-        value: llama-3.3-70b-versatile
+        value: openai/gpt-oss-120b
 
   - type: web
     name: reson8-audit-worker
