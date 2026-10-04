@@ -1,0 +1,39 @@
+services:
+  - type: web
+    name: reson8-audit-engine
+    runtime: node
+    plan: starter
+    region: frankfurt
+    branch: main
+    autoDeploy: true
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: SUPABASE_URL
+        value: https://gznwamoxuxzaayjaxvlo.supabase.co
+      - key: SUPABASE_SECRET_KEY
+        sync: false
+      - key: AUDD_API_TOKEN
+        sync: false
+
+  - type: cron
+    name: reson8-audit-worker
+    runtime: node
+    plan: starter
+    region: frankfurt
+    branch: main
+    schedule: "*/1 * * * *"
+    buildCommand: npm install && npm run build
+    startCommand: npm run worker
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: SUPABASE_URL
+        value: https://gznwamoxuxzaayjaxvlo.supabase.co
+      - key: SUPABASE_SECRET_KEY
+        sync: false
+      - key: AUDD_API_TOKEN
+        sync: false
