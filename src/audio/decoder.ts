@@ -23,18 +23,19 @@ export function createAudioDecoder(floatDecoder?: FloatDecoder): AudioDecoder {
     };
   }
 
-  if (!ffmpegPath) throw new Error("FFmpeg binary is unavailable");
+  const binary = ffmpegPath as unknown as string | null;
+  if (!binary) throw new Error("FFmpeg binary is unavailable");
 
   return {
     decode(bytes) {
-      return decodeWithFfmpeg(bytes);
+      return decodeWithFfmpeg(bytes, binary);
     },
   };
 }
 
-async function decodeWithFfmpeg(bytes: Uint8Array): Promise<DecodedAudio> {
+async function decodeWithFfmpeg(bytes: Uint8Array, binary: string): Promise<DecodedAudio> {
   return new Promise((resolve, reject) => {
-    const ffmpeg = spawn(ffmpegPath!, [
+    const ffmpeg = spawn(binary, [
       "-hide_banner",
       "-loglevel",
       "error",
@@ -48,7 +49,7 @@ async function decodeWithFfmpeg(bytes: Uint8Array): Promise<DecodedAudio> {
       "-f",
       "f32le",
       "pipe:1",
-    ]);
+    ], { stdio: ["pipe", "pipe", "pipe"] });
 
     const chunks: Buffer[] = [];
     let stderr = "";
@@ -58,7 +59,7 @@ async function decodeWithFfmpeg(bytes: Uint8Array): Promise<DecodedAudio> {
       stderr += chunk.toString();
     });
     ffmpeg.on("error", reject);
-    ffmpeg.on("close", (code) => {
+    ffmpeg.on("close", (code: number | null) => {
       if (code !== 0) {
         reject(new Error(`Audio decode failed: ${stderr.trim() || `ffmpeg exited ${code}`}`));
         return;
@@ -66,8 +67,10 @@ async function decodeWithFfmpeg(bytes: Uint8Array): Promise<DecodedAudio> {
 
       const buffer = Buffer.concat(chunks);
       const aligned = buffer.subarray(0, buffer.byteLength - (buffer.byteLength % 4));
+      const copied = new Float32Array(aligned.byteLength / 4);
+      new Uint8Array(copied.buffer).set(aligned);
       resolve({
-        samples: new Float32Array(aligned.buffer, aligned.byteOffset, aligned.byteLength / 4),
+        samples: copied,
         sampleRate: 44100,
         channels: 1,
       });
