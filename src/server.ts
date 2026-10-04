@@ -41,7 +41,7 @@ export function buildServer(store: AuditStore = createSupabaseAuditStore()) {
     bodyLimit: MAX_AUDIO_FILE_BYTES,
   });
 
-  app.addContentTypeParser(/^audio\\/.+$/i, { parseAs: "buffer" }, (_request, body, done) => {
+  app.addContentTypeParser(new RegExp("^audio/.+$", "i"), { parseAs: "buffer" }, (_request, body, done) => {
     done(null, body);
   });
 
