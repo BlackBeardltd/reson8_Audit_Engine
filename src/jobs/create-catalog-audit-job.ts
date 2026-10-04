@@ -1,0 +1,4 @@
+import { sha256 } from "./content-hash.js";
+export interface CreateCatalogAuditJobInput { ownerId:string; catalogUrl:string; }
+export interface CreateCatalogAuditJobDependencies { ensureProfile:(ownerId:string)=>Promise<void>; createCatalogJob:(input:{ownerId:string;catalogUrl:string;sha256:string})=>Promise<string>; }
+export async function createCatalogAuditJob(input:CreateCatalogAuditJobInput,deps:CreateCatalogAuditJobDependencies){const url=new URL(input.catalogUrl.trim());if(url.protocol!=="https:")throw new Error("DSP URL must use HTTPS");if(url.username||url.password)throw new Error("DSP URL must not contain credentials");const digest=await sha256(new TextEncoder().encode(url.toString()));await deps.ensureProfile(input.ownerId);const jobId=await deps.createCatalogJob({ownerId:input.ownerId,catalogUrl:url.toString(),sha256:digest});return{jobId,sha256:digest};}
