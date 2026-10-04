@@ -6,6 +6,8 @@ import { type CatalogMetadata } from "../providers/dsp/catalog.js";
 import { buildSongEvidence } from "../jobs/song-evidence.js";
 import type { SonicDnaFeatures } from "../audio/sonic-dna.js";
 import type { ArAssessment } from "../providers/groq/client.js";
+import type { AuditReportTier } from "../reports/generate-audit-report.js";
+import { sha256 } from "../jobs/content-hash.js";
 
 export interface SupabaseAuditStore {
   admin: SupabaseClient;
@@ -20,6 +22,7 @@ export interface SupabaseAuditStore {
   saveCatalogMetadata(jobId: string, metadata: CatalogMetadata): Promise<void>;
   saveSonicDna(jobId: string, dna: SonicDnaFeatures): Promise<void>;
   saveAssessment(jobId: string, assessment: ArAssessment): Promise<void>;
+  saveReport(jobId: string, tier: AuditReportTier, pdf: Uint8Array): Promise<void>;
   markCompleted(jobId: string): Promise<void>;
   markFailed(jobId: string, message: string): Promise<void>;
 }
@@ -237,6 +240,46 @@ export function createSupabaseAuditStore(
         model: process.env.GROQ_MODEL ?? "llama-3.3-70b-versatile",
         promptVersion: "audit-ar-v1",
         confidence: assessment.confidence,
+      });
+    },
+    async saveReport(jobId, tier, pdf) {
+      const digest = await sha256(pdf);
+      const { data: latest, error: latestError } = await admin
+        .from("audit_reports")
+        .select("version")
+        .eq("audit_job_id", jobId)
+        .eq("tier", tier)
+        .order("version", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (latestError) throw new Error(`Unable to read report version: ${latestError.message}`);
+
+      const version = Number(latest?.version ?? 0) + 1;
+      const storagePath = `${jobId}/v${version}/${tier}.pdf`;
+      const { error: uploadError } = await admin.storage
+        .from("audit-reports")
+        .upload(storagePath, pdf, { contentType: "application/pdf", upsert: false });
+      if (uploadError) throw new Error(`Unable to store ${tier} report: ${uploadError.message}`);
+
+      const { error } = await admin.from("audit_reports").insert({
+        audit_job_id: jobId,
+        tier,
+        version,
+        access_status: tier === "sample" ? "available" : "locked",
+        storage_path: storagePath,
+        sha256: digest,
+        content_type: "application/pdf",
+      });
+      if (error) {
+        await admin.storage.from("audit-reports").remove([storagePath]);
+        throw new Error(`Unable to persist ${tier} report metadata: ${error.message}`);
+      }
+
+      await event(jobId, "report_generated", "completed", undefined, {
+        tier,
+        version,
+        accessStatus: tier === "sample" ? "available" : "locked",
+        sha256: digest,
       });
     },
     async markCompleted(jobId) {
