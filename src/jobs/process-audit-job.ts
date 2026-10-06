@@ -4,6 +4,7 @@ import type { ArAssessment } from "../providers/groq/client.js";
 import type { AuditReportInput, AuditReportTier } from "../reports/generate-audit-report.js";
 import { analyzePcm, type SonicDnaFeatures } from "../audio/sonic-dna.js";
 import { MetadataEngine, type TrackIdentity } from "../metadata/MetadataEngine.js";
+import { reconcileMetadata, type MetadataReconciliation } from "../metadata/ReconciliationEngine.js";
 
 export interface AuditJobRecord {
   id: string;
@@ -122,7 +123,7 @@ function identityEvidence(identity: TrackIdentity): Record<string, unknown> {
   };
 }
 
-function catalogEvidence(metadata: CatalogMetadata, identity: TrackIdentity): Record<string, unknown> {
+function reconciliationEvidence(reconciliation: MetadataReconciliation): Record<string, unknown> {\n  return {\n    status: reconciliation.status,\n    reconciledFields: reconciliation.reconciledFields,\n    conflicts: reconciliation.conflicts,\n    identity: identityEvidence(reconciliation.identity),\n  };\n}\n\nfunction catalogEvidence(metadata: CatalogMetadata, identity: TrackIdentity, reconciliation?: MetadataReconciliation): Record<string, unknown> {
   return {
     status: metadata.evidenceStatus,
     platform: metadata.platform,
@@ -188,17 +189,20 @@ export async function processAuditJob(
         }
       }
 
-      const identity = MetadataEngine.normalize({
+      const metadataInput = {
         ...catalogMetadataInput(metadata),
         audd: recognition ? recognitionMetadataInput(recognition) : null,
-      });
+      };
+      const reconciliation = reconcileMetadata(metadataInput);
+      const identity = reconciliation.identity;
       const evidence = recognition
         ? {
             ...recognitionEvidence(recognition),
             ...identityEvidence(identity),
             identity: identityEvidence(identity),
+            reconciliation: reconciliationEvidence(reconciliation),
           }
-        : catalogEvidence(metadata, identity);
+        : catalogEvidence(metadata, identity, reconciliation);
     const assessment = await deps.generateAssessment({
         evidence,
         sonicDna: null,
@@ -233,14 +237,16 @@ export async function processAuditJob(
     };
     await deps.saveSonicDna(jobId, normalizedDna);
 
-    const identity = MetadataEngine.normalize({
+    const reconciliation = reconcileMetadata({
       audd: recognitionMetadataInput(recognition),
       filename: job.sourceAudioPath,
     });
+    const identity = reconciliation.identity;
     const evidence = {
       ...recognitionEvidence(recognition),
       ...identityEvidence(identity),
       identity: identityEvidence(identity),
+      reconciliation: reconciliationEvidence(reconciliation),
     };
     const sonicDna = dnaEvidence(normalizedDna);
     const assessment = await deps.generateAssessment({
