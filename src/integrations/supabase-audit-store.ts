@@ -27,8 +27,7 @@ export interface SupabaseAuditStore {
     jobId: string;
     status: "queued" | "processing" | "completed" | "failed";
     errorMessage?: string | null;
-    sample: { available: boolean; version?: number };
-    full: { available: boolean; version?: number; locked: boolean };
+    full: { available: boolean; version?: number };
   }>;
   getAuditReport(jobId: string, tier: "sample" | "full", ownerId?: string): Promise<{
     bytes: Uint8Array;
@@ -268,16 +267,12 @@ export function createSupabaseAuditStore(
         }
       }
 
-      const sample = latest.get("sample");
       const full = latest.get("full");
       return {
         jobId,
         status: job.status as "queued" | "processing" | "completed" | "failed",
         errorMessage: job.error_message as string | null,
-        sample: sample ? { available: true, version: sample.version } : { available: false },
-        full: full
-          ? { available: true, version: full.version, locked: full.access_status === "locked" }
-          : { available: false, locked: true },
+        full: full ? { available: true, version: full.version } : { available: false },
       };
     },
     async getAuditReport(jobId, tier, ownerId) {
