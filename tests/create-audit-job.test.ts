@@ -102,6 +102,6 @@ describe("createAuditJob", () => {
       ),
     ).rejects.toThrow("database unavailable");
 
-    expect(calls).toEqual(["job", "upload", "path", "delete-master", "delete-job"]);
+    expect(calls).toEqual(["upload", "path", "delete-master", "delete-job"]);
   });
 });
