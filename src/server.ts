@@ -11,6 +11,7 @@ export interface AuditStore {
   getAuditStatus(jobId: string): Promise<{
     jobId: string;
     status: "queued" | "processing" | "completed" | "failed";
+    currentStepIndex: number;
     errorMessage?: string | null;
     full: { available: boolean; version?: number };
   }>;
