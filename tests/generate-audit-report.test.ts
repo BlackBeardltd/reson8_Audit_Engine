@@ -13,6 +13,7 @@ const input: AuditReportInput = {
     sources: ["audd", "spotify"],
   },
   sonicDna: {
+    provenance: "tidal_catalog_metadata",
     bpm: 94,
     key: null,
     mode: null,

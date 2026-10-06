@@ -5,11 +5,20 @@ import { normalizeTidalTrack } from "../tidal/normalize.js";
 
 export type DspPlatform = "spotify" | "apple_music" | "youtube_music" | "deezer" | "tidal" | "unknown";
 
+export interface CatalogSonicProfile {
+  provenance: "tidal_catalog_metadata";
+  bpm: number | null;
+  key: string | null;
+  mode: "major" | "minor" | null;
+  moodTags: string[];
+  genreContext: string[];
+}
+
 export interface CatalogMetadata {
   platform: DspPlatform; sourceUrl: string; canonicalUrl: string; catalogId: string | null;
   artist: string | null; title: string | null; album: string | null; releaseDate: string | null;
-  isrc: string | null; upc: string | null; label: string | null; genre: string | null;
-  artworkUrl: string | null; previewUrl: string | null; externalIds: Record<string,string>;
+  isrc: string | null; upc: string | null; catalogPopularity: number | null; catalogPopularityScale: "0_1" | "0_100" | null; label: string | null; genre: string | null;
+  artworkUrl: string | null; previewUrl: string | null; externalIds: Record<string,string>; sonicProfile: CatalogSonicProfile | null;
   raw: Record<string,unknown>; evidenceStatus: "verified" | "partial";
 }
 
@@ -22,7 +31,7 @@ const HOSTS: Record<string,DspPlatform> = {
 
 function normalizeUrl(input:string){const u=new URL(input.trim());if(u.protocol!=="https:")throw new Error("DSP URL must use HTTPS");if(u.username||u.password)throw new Error("DSP URL must not contain credentials");if(!HOSTS[u.hostname.toLowerCase()])throw new Error("Unsupported DSP or catalog URL");return u;}
 function idFromPath(u:URL,p:DspPlatform){const a=u.pathname.split("/").filter(Boolean);if(p==="spotify"){const i=a.indexOf("track");return i>=0?a[i+1]??null:null;}if(p==="apple_music"){const i=a.indexOf("i");return i>=0?a[i+1]??null:u.searchParams.get("i");}if(p==="deezer"){const i=a.indexOf("track");return i>=0?a[i+1]??null:null;}if(p==="tidal"){const i=a.indexOf("track");return i>=0?a[i+1]??null:null;}return u.searchParams.get("v")??(u.hostname==="youtu.be"?a[0]??null:null);}
-function base(p:DspPlatform,u:URL):CatalogMetadata{return{platform:p,sourceUrl:u.toString(),canonicalUrl:u.toString(),catalogId:idFromPath(u,p),artist:null,title:null,album:null,releaseDate:null,isrc:null,upc:null,label:null,genre:null,artworkUrl:null,previewUrl:null,externalIds:{},raw:{},evidenceStatus:"partial"};}
+function base(p:DspPlatform,u:URL):CatalogMetadata{return{platform:p,sourceUrl:u.toString(),canonicalUrl:u.toString(),catalogId:idFromPath(u,p),artist:null,title:null,album:null,releaseDate:null,isrc:null,upc:null,catalogPopularity:null,catalogPopularityScale:null,label:null,genre:null,artworkUrl:null,previewUrl:null,externalIds:{},raw:{},evidenceStatus:"partial",sonicProfile:null};}
 
 async function spotify(u:URL){
   const id=idFromPath(u,"spotify");
@@ -42,7 +51,59 @@ async function tidal(u:URL){
   }
   const client=new TidalClient();
   const track=await client.getTrack(id);
-  return normalizeTidalTrack(u.toString(),track);
+  const metadata = normalizeTidalTrack(u.toString(), track);
+
+  if (metadata.isrc && (!metadata.genre || !metadata.label || metadata.catalogPopularity === null)) {
+    try {
+      const spotifyClient = new SpotifyClient();
+      const spotifyTrack = await spotifyClient.getTrackByIsrc(metadata.isrc);
+      if (!spotifyTrack) return metadata;
+
+      const artistId = (
+        spotifyTrack.artists as Array<Record<string, unknown>> | undefined
+      )?.[0]?.id;
+
+      if (typeof artistId === "string" && artistId) {
+        const artist = await spotifyClient.getArtist(artistId);
+        const genres = Array.isArray(artist.genres)
+          ? artist.genres.filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+          : [];
+
+        return {
+          ...metadata,
+          genre: genres[0] ?? metadata.genre,
+          catalogPopularity: metadata.catalogPopularity ?? (
+            typeof spotifyTrack?.popularity === "number" && Number.isFinite(spotifyTrack.popularity)
+              ? spotifyTrack.popularity
+              : null
+          ),
+          catalogPopularityScale: metadata.catalogPopularityScale ?? (
+            typeof spotifyTrack?.popularity === "number" && Number.isFinite(spotifyTrack.popularity)
+              ? "0_100"
+              : null
+          ),
+          externalIds: {
+            ...metadata.externalIds,
+            ...(typeof spotifyTrack.id === "string" ? { spotify: spotifyTrack.id } : {}),
+          },
+          raw: {
+            ...metadata.raw,
+            crossReferences: {
+              spotify: {
+                id: typeof spotifyTrack.id === "string" ? spotifyTrack.id : null,
+                artistId,
+                genres,
+              },
+            },
+          },
+        };
+      }
+    } catch {
+      // TIDAL remains authoritative when optional Spotify enrichment is unavailable.
+    }
+  }
+
+  return metadata;
 }
 async function deezer(u:URL){const m=base("deezer",u);if(!m.catalogId)throw new Error("Deezer track ID could not be detected");const r=await fetch("https://api.deezer.com/track/"+encodeURIComponent(m.catalogId));if(!r.ok)throw new Error("Deezer metadata request failed with HTTP "+r.status);const x=await r.json() as Record<string,unknown>;if(x.error)throw new Error("Deezer track was not found");const a=x.artist as Record<string,unknown>|undefined,b=x.album as Record<string,unknown>|undefined;m.title=String(x.title??"")||null;m.artist=String(a?.name??"")||null;m.album=String(b?.title??"")||null;m.artworkUrl=String(b?.cover_medium??"")||null;m.previewUrl=String(x.preview??"")||null;m.canonicalUrl=String(x.link??u);if(m.catalogId)m.externalIds.deezer=m.catalogId;m.raw=x;m.evidenceStatus=m.title&&m.artist?"verified":"partial";return m;}
 async function youtube(u:URL){const m=base("youtube_music",u);const r=await fetch("https://www.youtube.com/oembed?url="+encodeURIComponent(u.toString())+"&format=json");if(!r.ok)throw new Error("YouTube metadata request failed with HTTP "+r.status);const d=await r.json() as {title?:string;author_name?:string;thumbnail_url?:string};m.title=d.title??null;m.artist=d.author_name??null;m.artworkUrl=d.thumbnail_url??null;if(m.catalogId)m.externalIds.youtube=m.catalogId;m.raw=d;m.evidenceStatus=m.title&&m.artist?"verified":"partial";return m;}

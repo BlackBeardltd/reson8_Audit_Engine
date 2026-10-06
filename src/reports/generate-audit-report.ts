@@ -139,6 +139,15 @@ export async function generateAuditReport(
       58,
     );
 
+    y = drawHeading(page, "Catalog performance signal", margin, y, bold);
+    const catalogPopularity = input.evidence.catalogPopularity;
+    const catalogPopularityScale = input.evidence.catalogPopularityScale;
+    const catalogPlatform = text(input.evidence.platform);
+    const popularityText = catalogPopularity === null || catalogPopularity === undefined
+      ? "No provider popularity signal was available."
+      : `${catalogPlatform} catalog popularity: ${text(catalogPopularity)} (provider scale: ${text(catalogPopularityScale)}). This is a catalog signal, not streams, revenue, sales, or audience performance.`;
+    y = addEditableField(pdf, page, font, "catalog_performance_signal", popularityText, margin, y, 500, 58);
+
     y = drawHeading(page, "Release strategy", margin, y, bold);
     y = addEditableField(
       pdf,
@@ -170,7 +179,10 @@ export async function generateAuditReport(
       120,
     );
 
-    y = drawHeading(page, "Observed Sonic DNA", margin, y, bold);
+    const sonicHeading = input.sonicDna && input.sonicDna.provenance === "tidal_catalog_metadata"
+      ? "Catalog Sonic Profile (TIDAL metadata)"
+      : "Observed Sonic DNA";
+    y = drawHeading(page, sonicHeading, margin, y, bold);
     const dna = input.sonicDna
       ? [
           `BPM: ${text(input.sonicDna.bpm)}`,
@@ -182,7 +194,7 @@ export async function generateAuditReport(
           `Mood tags: ${text(input.sonicDna.moodTags)}`,
           `Genre context: ${text(input.sonicDna.genreContext)}`,
         ].join("\n")
-      : "No master-derived Sonic DNA was available for this audit.";
+      : "No master-derived or provider sonic profile was available for this audit.";
     y = addEditableField(pdf, page, font, "sonic_dna", dna, margin, y, 500, 120);
   }
 

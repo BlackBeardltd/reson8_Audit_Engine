@@ -73,7 +73,7 @@ export class TidalClient implements TidalApiClient {
     const accessToken = await this.accessToken();
     const params = new URLSearchParams({
       countryCode: this.countryCode,
-      include: "artists,albums",
+      include: "artists,albums,genres,providers",
     });
 
     const response = await fetch(

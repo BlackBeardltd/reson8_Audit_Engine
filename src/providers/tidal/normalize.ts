@@ -1,4 +1,4 @@
-import type { CatalogMetadata } from "../dsp/catalog.js";
+import type { CatalogMetadata, CatalogSonicProfile } from "../dsp/catalog.js";
 
 type TidalResource = {
   type?: unknown;
@@ -21,15 +21,63 @@ const normalizedIsrc = (value: unknown): string | null => {
   return valueString ? valueString.replace(/[\s-]/g, "").toUpperCase() : null;
 };
 
+function includedResources(
+  document: TidalDocument,
+  type: string,
+): TidalResource[] {
+  return document.included?.filter((entry) => entry.type === type) ?? [];
+}
+
 function includedResource(
   document: TidalDocument,
   type: string,
   id: string | null,
 ): TidalResource | null {
   if (!id) return null;
-  return document.included?.find(
-    (entry) => entry.type === type && String(entry.id) === id,
+  return includedResources(document, type).find(
+    (entry) => String(entry.id) === id,
   ) ?? null;
+}
+
+function numberValue(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function stringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((entry): entry is string =>
+    typeof entry === "string" && entry.trim().length > 0,
+  ).map((entry) => entry.trim());
+}
+
+function normalizeMode(value: unknown): "major" | "minor" | null {
+  const normalized = stringValue(value)?.toLowerCase();
+  if (normalized === "major") return "major";
+  if (normalized === "minor") return "minor";
+  return null;
+}
+
+function sonicProfile(
+  attributes: Record<string, unknown>,
+  genres: string[],
+): CatalogSonicProfile | null {
+  const bpm = numberValue(attributes.bpm);
+  const key = stringValue(attributes.key);
+  const mode = normalizeMode(attributes.keyScale);
+  const moodTags = stringArray(attributes.toneTags);
+
+  if (bpm === null && !key && !mode && moodTags.length === 0 && genres.length === 0) {
+    return null;
+  }
+
+  return {
+    provenance: "tidal_catalog_metadata",
+    bpm,
+    key,
+    mode,
+    moodTags,
+    genreContext: genres,
+  };
 }
 
 export function normalizeTidalTrack(
@@ -64,6 +112,17 @@ export function normalizeTidalTrack(
   const title = stringValue(attributes.title);
   const artistName = stringValue(artist?.attributes?.name);
   const albumTitle = stringValue(album?.attributes?.title);
+  const genres = includedResources(document, "genres")
+    .map((entry) => stringValue(entry.attributes?.name))
+    .filter((value): value is string => Boolean(value));
+  const providers = includedResources(document, "providers");
+  const label = providers
+    .map((entry) =>
+      stringValue(entry.attributes?.name) ??
+      stringValue(entry.attributes?.label) ??
+      stringValue(entry.attributes?.title),
+    )
+    .find(Boolean) ?? stringValue(attributes.label);
 
   const tidalId = stringValue(track?.id);
   const canonicalUrl = sourceUrl;
@@ -85,12 +144,15 @@ export function normalizeTidalTrack(
     releaseDate,
     isrc,
     upc: null,
-    label: stringValue(attributes.label),
-    genre: stringValue(attributes.genre),
+    catalogPopularity: numberValue(attributes.popularity),
+    catalogPopularityScale: numberValue(attributes.popularity) === null ? null : "0_1",
+    label,
+    genre: genres[0] ?? stringValue(attributes.genre),
     artworkUrl: null,
     previewUrl: null,
     externalIds: tidalId ? { tidal: tidalId } : {},
     raw: documentInput,
     evidenceStatus: title && artistName ? "verified" : "partial",
+    sonicProfile: sonicProfile(attributes, genres),
   };
 }

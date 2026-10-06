@@ -11,6 +11,8 @@ interface CachedToken {
 
 export interface SpotifyApiClient {
   getTrack(trackId: string): Promise<Record<string, unknown>>;
+  getTrackByIsrc(isrc: string): Promise<Record<string, unknown> | null>;
+  getArtist(artistId: string): Promise<Record<string, unknown>>;
 }
 
 export class SpotifyClient implements SpotifyApiClient {
@@ -67,6 +69,56 @@ export class SpotifyClient implements SpotifyApiClient {
     };
 
     return payload.access_token;
+  }
+
+  async getTrackByIsrc(isrc: string): Promise<Record<string, unknown> | null> {
+    const accessToken = await this.accessToken();
+    const params = new URLSearchParams({
+      q: `isrc:${isrc}`,
+      type: "track",
+      market: this.market,
+      limit: "1",
+    });
+
+    const response = await fetch(
+      `https://api.spotify.com/v1/search?${params.toString()}`,
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      },
+    );
+
+    if (!response.ok) {
+      throw new Error(
+        `Spotify ISRC search failed with HTTP ${response.status}`,
+      );
+    }
+
+    const payload = await response.json() as {
+      tracks?: { items?: Array<Record<string, unknown>> };
+    };
+    return payload.tracks?.items?.[0] ?? null;
+  }
+
+  async getArtist(artistId: string): Promise<Record<string, unknown>> {
+    const accessToken = await this.accessToken();
+    const response = await fetch(
+      `https://api.spotify.com/v1/artists/${encodeURIComponent(artistId)}`,
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      },
+    );
+
+    if (!response.ok) {
+      throw new Error(
+        `Spotify artist request failed with HTTP ${response.status}`,
+      );
+    }
+
+    return (await response.json()) as Record<string, unknown>;
   }
 
   async getTrack(trackId: string): Promise<Record<string, unknown>> {
