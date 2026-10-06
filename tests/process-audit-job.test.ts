@@ -118,11 +118,20 @@ describe("processAuditJob", () => {
         upc: null,
         label: null,
         genre: null,
+        catalogPopularity: 61,
         artworkUrl: null,
         previewUrl: "https://example.com/preview.mp3",
         externalIds: { spotify: "spotify-123" },
         raw: {},
         evidenceStatus: "verified" as const,
+        sonicProfile: {
+          provenance: "tidal_catalog_metadata" as const,
+          bpm: 96,
+          key: "A",
+          mode: "minor" as const,
+          moodTags: ["Energetic"],
+          genreContext: ["R&B"],
+        },
       }),
       recognizeUrl: async () => ({
         matched: true as const,
@@ -141,6 +150,13 @@ describe("processAuditJob", () => {
       saveSonicDna: async () => {},
       generateAssessment: async (input) => {
         assessmentInputs.push(input.evidence);
+        expect(input.sonicDna).toMatchObject({
+          provenance: "tidal_catalog_metadata",
+          bpm: 96,
+          key: "A",
+          mode: "minor",
+          genreContext: ["R&B"],
+        });
         return assessment;
       },
       saveAssessment: async () => {},
