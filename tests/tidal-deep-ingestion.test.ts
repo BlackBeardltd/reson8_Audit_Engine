@@ -55,7 +55,7 @@ describe("TIDAL deep catalog ingestion", () => {
           },
         ],
         links: {
-          self: "https://openapi.tidal.com/v2/tracks/12345?countryCode=US",
+          self: "https://openapi.tidal.com/v2/tracks/12345?countryCode=US&include=artists%2Calbums",
         },
       }), { status: 200, headers: { "content-type": "application/vnd.api+json" } }));
 
@@ -72,7 +72,7 @@ describe("TIDAL deep catalog ingestion", () => {
       "https://auth.tidal.com/v1/oauth2/token",
     );
     expect(fetchMock.mock.calls[1]?.[0]).toBe(
-      "https://openapi.tidal.com/v2/tracks/12345?countryCode=US",
+      "https://openapi.tidal.com/v2/tracks/12345?countryCode=US&include=artists%2Calbums",
     );
     expect(result).toMatchObject({
       platform: "tidal",
