@@ -83,7 +83,7 @@ async function submitAudit(){
     submit.querySelector("span").textContent="Audit processing";pollAudit(payload.jobId);
   }catch(e){actionMessage.textContent=e instanceof Error?e.message:"Audit intake failed.";submit.disabled=false;submit.querySelector("span").textContent="Start A&R audit";}
 }
-masterTab.addEventListener("click",()=>setMode("master"));dspTab.addEventListener("click",()=>setMode("dsp"));input.addEventListener("change",()=>input.files?.[0]&&inspect(input.files[0]));removeFile.addEventListener("click",clearFile);detectCatalog.addEventListener("click",previewCatalog);catalogUrl.addEventListener("input",()=>{catalogReady=false;setCheck(catalogCheck,"","—");});catalogUrl.addEventListener("blur",previewCatalog);submit.addEventListener("click",submitAudit);authForm.addEventListener("submit",signIn);authSignOut.addEventListener("click",signOut);
+masterTab.addEventListener("click",()=>setMode("master"));dspTab.addEventListener("click",()=>setMode("dsp"));input.addEventListener("change",()=>input.files?.[0]&&inspect(input.files[0]));removeFile.addEventListener("click",clearFile);detectCatalog.addEventListener("click",previewCatalog);catalogUrl.addEventListener("input",()=>{catalogReady=false;setCheck(catalogCheck,"","—");});catalogUrl.addEventListener("blur",previewCatalog);submit.addEventListener("click",submitAudit);
 ["dragenter","dragover"].forEach(type=>dropzone.addEventListener(type,e=>{e.preventDefault();dropzone.classList.add("dragover");}));
 ["dragleave","drop"].forEach(type=>dropzone.addEventListener(type,e=>{e.preventDefault();dropzone.classList.remove("dragover");}));
 dropzone.addEventListener("drop",e=>{const f=e.dataTransfer?.files?.[0];if(f)inspect(f);});
