@@ -27,6 +27,10 @@ describe("TIDAL deep catalog ingestion", () => {
             releaseDate: "1968-07-01",
             explicit: false,
             popularity: 61,
+            bpm: 96,
+            key: "A",
+            keyScale: "minor",
+            toneTags: ["Energetic", "Dark"],
             audioQuality: "LOSSLESS",
           },
           relationships: {
@@ -35,6 +39,12 @@ describe("TIDAL deep catalog ingestion", () => {
             },
             albums: {
               data: [{ type: "albums", id: "album-123" }],
+            },
+            genres: {
+              data: [{ type: "genres", id: "genre-123" }],
+            },
+            providers: {
+              data: [{ type: "providers", id: "provider-123" }],
             },
           },
         },
@@ -53,9 +63,19 @@ describe("TIDAL deep catalog ingestion", () => {
               numberOfVolumes: 1,
             },
           },
+          {
+            type: "genres",
+            id: "genre-123",
+            attributes: { name: "R&B" },
+          },
+          {
+            type: "providers",
+            id: "provider-123",
+            attributes: { name: "Atlantic Records" },
+          },
         ],
         links: {
-          self: "https://openapi.tidal.com/v2/tracks/12345?countryCode=US&include=artists%2Calbums",
+          self: "https://openapi.tidal.com/v2/tracks/12345?countryCode=US&include=artists%2Calbums%2Cgenres%2Cproviders",
         },
       }), { status: 200, headers: { "content-type": "application/vnd.api+json" } }));
 
@@ -72,7 +92,7 @@ describe("TIDAL deep catalog ingestion", () => {
       "https://auth.tidal.com/v1/oauth2/token",
     );
     expect(fetchMock.mock.calls[1]?.[0]).toBe(
-      "https://openapi.tidal.com/v2/tracks/12345?countryCode=US&include=artists%2Calbums",
+      "https://openapi.tidal.com/v2/tracks/12345?countryCode=US&include=artists%2Calbums%2Cgenres%2Cproviders",
     );
     expect(result).toMatchObject({
       platform: "tidal",
@@ -85,6 +105,16 @@ describe("TIDAL deep catalog ingestion", () => {
       canonicalUrl: "https://tidal.com/browse/track/12345",
       externalIds: { tidal: "12345" },
       evidenceStatus: "verified",
+      genre: "R&B",
+      label: "Atlantic Records",
+      sonicProfile: {
+        provenance: "tidal_catalog_metadata",
+        bpm: 96,
+        key: "A",
+        mode: "minor",
+        moodTags: ["Energetic", "Dark"],
+        genreContext: ["R&B"],
+      },
     });
     expect(result.raw).toMatchObject({
       data: {
