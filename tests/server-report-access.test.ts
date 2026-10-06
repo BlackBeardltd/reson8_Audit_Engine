@@ -13,13 +13,12 @@ function store(overrides: Record<string, unknown> = {}) {
 }
 
 describe("audit report retrieval", () => {
-  it("returns completed sample report metadata for a processed job", async () => {
+  it("returns only full report metadata for a processed job", async () => {
     const app = buildServer(store({
       getAuditStatus: async () => ({
         jobId: "job-123",
         status: "completed",
-        sample: { available: true, version: 1 },
-        full: { available: true, version: 1, locked: false },
+        full: { available: true, version: 1 },
       }),
     }));
 
@@ -50,6 +49,9 @@ describe("audit report retrieval", () => {
     expect(response.statusCode).toBe(200);
     expect(response.headers["content-type"]).toContain("application/pdf");
     expect(response.headers["content-disposition"]).toContain("reson8-audit-job-123-full-v1.pdf");
+
+    const sampleResponse = await app.inject({ method: "GET", url: "/v1/audits/job-123/reports/sample" });
+    expect(sampleResponse.statusCode).toBe(404);
 
     await app.close();
   });
