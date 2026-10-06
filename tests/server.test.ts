@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { buildServer } from "../src/server.js";
 
 const store = {
@@ -10,8 +10,7 @@ const store = {
   getAuditStatus: async () => ({
     jobId: "job-1",
     status: "completed" as const,
-    sample: { available: true, version: 1 },
-    full: { available: true, version: 1, locked: true },
+    full: { available: true, version: 1 },
   }),
   getAuditReport: async () => ({
     bytes: new Uint8Array([37, 80, 68, 70]),
@@ -23,9 +22,9 @@ const store = {
 describe("authentication-disabled API surface", () => {
   it("does not expose a browser authentication configuration endpoint", async () => {
     const app = buildServer({
-      authenticate: async () => { throw new Error("not used"); },
-      resolvePublicOwnerId: async () => null,
       createJobDependencies: () => { throw new Error("not used"); },
+      getAuditStatus: store.getAuditStatus,
+      getAuditReport: store.getAuditReport,
     } as any);
 
     const response = await app.inject({ method: "GET", url: "/v1/auth/config" });
