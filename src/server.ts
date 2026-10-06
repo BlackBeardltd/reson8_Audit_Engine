@@ -91,10 +91,6 @@ export function buildServer(store: AuditStore = createSupabaseAuditStore()) {
       const result = await createCatalogAuditJob(
         { ownerId, catalogUrl: url },
         {
-          ensureProfile: async (id) => {
-            const deps = store.createJobDependencies();
-            await deps.ensureProfile(id);
-          },
           createCatalogJob: async (input) => {
             const deps = store.createJobDependencies();
             return deps.createCatalogJob(input);
