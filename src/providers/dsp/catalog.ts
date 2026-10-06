@@ -75,6 +75,11 @@ async function tidal(u:URL){
               ? spotifyTrack.popularity
               : null
           ),
+          catalogPopularityScale: metadata.catalogPopularityScale ?? (
+            typeof spotifyTrack?.popularity === "number" && Number.isFinite(spotifyTrack.popularity)
+              ? "0_100"
+              : null
+          ),
           externalIds: {
             ...metadata.externalIds,
             ...(typeof spotifyTrack.id === "string" ? { spotify: spotifyTrack.id } : {}),
