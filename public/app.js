@@ -1,5 +1,5 @@
 const input=document.querySelector("#audioFile"),dropzone=document.querySelector("#dropzone"),filePanel=document.querySelector("#filePanel"),fileName=document.querySelector("#fileName"),fileDetails=document.querySelector("#fileDetails"),removeFile=document.querySelector("#removeFile"),submit=document.querySelector("#submitAudit"),actionMessage=document.querySelector("#actionMessage"),preflightState=document.querySelector("#preflightState"),resultPanel=document.querySelector("#resultPanel"),jobId=document.querySelector("#jobId"),serverHash=document.querySelector("#serverHash");
-const auditStatus=document.querySelector("#auditStatus"),resultMessage=document.querySelector("#resultMessage"),reportActions=document.querySelector("#reportActions"),sampleReportLink=document.querySelector("#sampleReportLink"),fullReportLink=document.querySelector("#fullReportLink");
+const auditStatus=document.querySelector("#auditStatus"),resultMessage=document.querySelector("#resultMessage"),reportActions=document.querySelector("#reportActions"),fullReportLink=document.querySelector("#fullReportLink");
 const masterTab=document.querySelector("#masterTab"),dspTab=document.querySelector("#dspTab"),masterSource=document.querySelector("#masterSource"),dspSource=document.querySelector("#dspSource"),catalogUrl=document.querySelector("#catalogUrl"),detectCatalog=document.querySelector("#detectCatalog"),catalogPlatform=document.querySelector("#catalogPlatform"),catalogPreview=document.querySelector("#catalogPreview"),catalogState=document.querySelector("#catalogState"),catalogCheck=document.querySelector("#catalogCheck");
 const checks={type:document.querySelector("#checkType"),size:document.querySelector("#checkSize"),hash:document.querySelector("#checkHash")};
 const MAX_BYTES=50*1024*1024,AUDIO_EXTENSIONS=new Set(["mp3","wav","flac","aac","ogg","m4a"]);
@@ -59,7 +59,7 @@ async function pollAudit(job){
       const response=await fetch("/v1/audits/"+encodeURIComponent(job));const payload=await response.json().catch(()=>({}));
       if(!response.ok)throw new Error(payload.message||"Could not read audit status");
       applyAuditPayload(payload);
-      if(payload.status==="completed"&&payload.sample?.available)return;
+      if(payload.status==="completed"&&payload.full?.available)return;
       if(payload.status==="failed"){resultMessage.textContent="Audit failed: "+(payload.errorMessage||"processing error");return;}
       if(Date.now()-started>=maxWait){resultMessage.textContent="Audit is still processing. Keep this page open and check the job again shortly.";return;}
       pollTimer=setTimeout(check,2500);
