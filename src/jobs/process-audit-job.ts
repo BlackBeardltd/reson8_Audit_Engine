@@ -3,6 +3,7 @@ import type { CatalogMetadata } from "../providers/dsp/catalog.js";
 import type { ArAssessment } from "../providers/groq/client.js";
 import type { AuditReportInput, AuditReportTier } from "../reports/generate-audit-report.js";
 import { analyzePcm, type SonicDnaFeatures } from "../audio/sonic-dna.js";
+import { MetadataEngine, type TrackIdentity } from "../metadata/MetadataEngine.js";
 
 export interface AuditJobRecord {
   id: string;
@@ -64,7 +65,64 @@ function recognitionEvidence(recognition: AuditRecognition): Record<string, unkn
   };
 }
 
-function catalogEvidence(metadata: CatalogMetadata): Record<string, unknown> {
+function catalogMetadataInput(metadata: CatalogMetadata) {
+  const provider = metadata.platform === "spotify" || metadata.platform === "tidal"
+    ? metadata.platform
+    : null;
+
+  return {
+    spotify: provider === "spotify"
+      ? {
+          title: metadata.title,
+          artist: metadata.artist,
+          album: metadata.album,
+          isrc: metadata.isrc,
+          label: metadata.label,
+          releaseDate: metadata.releaseDate,
+          genres: metadata.genre ? [metadata.genre] : [],
+        }
+      : null,
+    tidal: provider === "tidal"
+      ? {
+          title: metadata.title,
+          artist: metadata.artist,
+          album: metadata.album,
+          isrc: metadata.isrc,
+          label: metadata.label,
+          releaseDate: metadata.releaseDate,
+          genres: metadata.genre ? [metadata.genre] : [],
+        }
+      : null,
+  };
+}
+
+function recognitionMetadataInput(recognition: AuditRecognition) {
+  return {
+    result: {
+      title: recognition.title,
+      artist: recognition.artist,
+      album: recognition.album,
+      isrc: recognition.isrc,
+      label: recognition.label,
+      releaseDate: recognition.releaseDate,
+    },
+  };
+}
+
+function identityEvidence(identity: TrackIdentity): Record<string, unknown> {
+  return {
+    title: identity.title,
+    artist: identity.artist,
+    album: identity.album,
+    releaseDate: identity.releaseDate,
+    label: identity.label,
+    isrc: identity.isrc,
+    genres: identity.genres,
+    sourceProviders: identity.sourceProviders,
+  };
+}
+
+function catalogEvidence(metadata: CatalogMetadata, identity: TrackIdentity): Record<string, unknown> {
   return {
     status: metadata.evidenceStatus,
     platform: metadata.platform,
@@ -79,6 +137,7 @@ function catalogEvidence(metadata: CatalogMetadata): Record<string, unknown> {
     externalIds: metadata.externalIds,
     canonicalUrl: metadata.canonicalUrl,
     source: metadata.platform,
+    identity: identityEvidence(identity),
   };
 }
 
@@ -129,11 +188,17 @@ export async function processAuditJob(
         }
       }
 
-      const evidence = recognition ? recognitionEvidence(recognition) : catalogEvidence(metadata);
+      const identity = MetadataEngine.normalize({
+        ...catalogMetadataInput(metadata),
+        audd: recognition ? recognitionMetadataInput(recognition) : null,
+      });
+      const evidence = recognition
+        ? { ...recognitionEvidence(recognition), identity: identityEvidence(identity) }
+        : catalogEvidence(metadata, identity);
     const assessment = await deps.generateAssessment({
         evidence,
         sonicDna: null,
-        catalogMetadata: catalogEvidence(metadata),
+        catalogMetadata: catalogEvidence(metadata, identity),
       });
     await deps.saveAssessment(jobId, assessment);
       const generatedAt = new Date().toISOString();
@@ -164,7 +229,14 @@ export async function processAuditJob(
     };
     await deps.saveSonicDna(jobId, normalizedDna);
 
-    const evidence = recognitionEvidence(recognition);
+    const identity = MetadataEngine.normalize({
+      audd: recognitionMetadataInput(recognition),
+      filename: job.sourceAudioPath,
+    });
+    const evidence = {
+      ...recognitionEvidence(recognition),
+      identity: identityEvidence(identity),
+    };
     const sonicDna = dnaEvidence(normalizedDna);
     const assessment = await deps.generateAssessment({
       evidence,
