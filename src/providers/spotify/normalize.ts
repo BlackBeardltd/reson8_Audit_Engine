@@ -37,6 +37,7 @@ export function normalizeSpotifyTrack(sourceUrl: string, track: SpotifyTrack): C
     releaseDate: stringValue(album?.release_date),
     isrc,
     upc,
+    catalogPopularity: typeof track.popularity === "number" && Number.isFinite(track.popularity) ? track.popularity : null,
     label: null,
     genre: null,
     artworkUrl: stringValue(album?.images?.[0]?.url),
