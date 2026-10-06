@@ -48,6 +48,13 @@ h2,h3 { margin:0; letter-spacing:-.025em; }
 h2 { font-size:22px; }
 h3 { font-size:16px; }
 .status-chip { white-space:nowrap; border:1px solid var(--line); color:var(--muted); font-size:9px; letter-spacing:.12em; padding:8px 10px; }
+.auth-box { min-width:310px; border:1px solid var(--line); background:var(--panel); padding:10px; }
+.auth-status { color:var(--muted-2); font-size:8px; letter-spacing:.12em; margin-bottom:8px; }
+.auth-form { display:grid; grid-template-columns:1fr 1fr auto; gap:6px; }
+.auth-form input { min-width:0; border:1px solid var(--line); background:#080a0d; color:var(--text); padding:8px 9px; outline:none; font-size:10px; }
+.auth-form input:focus { border-color:var(--accent); }
+.auth-box .ghost-btn { white-space:nowrap; }
+
 .status-chip span { display:inline-block; width:6px; height:6px; background:var(--green); border-radius:50%; margin-right:7px; }
 
 .workspace { max-width:1260px; margin:0 auto; display:grid; grid-template-columns:minmax(0, 1.45fr) minmax(300px, .7fr); gap:20px; }
