@@ -28,7 +28,7 @@ describe("TIDAL deep catalog ingestion", () => {
             duration: 167,
             releaseDate: "1968-07-01",
             explicit: false,
-            popularity: 61,
+            popularity: 0.61,
             bpm: 96,
             key: "A",
             keyScale: "minor",
