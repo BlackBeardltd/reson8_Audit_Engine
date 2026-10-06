@@ -5,6 +5,8 @@ describe("Spotify deep catalog ingestion", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
+    delete process.env.SPOTIFY_CLIENT_ID;
+    delete process.env.SPOTIFY_CLIENT_SECRET;
   });
 
   it("uses the Spotify Web API track endpoint and preserves normalized catalog evidence", async () => {
@@ -43,11 +45,17 @@ describe("Spotify deep catalog ingestion", () => {
     process.env.SPOTIFY_CLIENT_ID = "client-id";
     process.env.SPOTIFY_CLIENT_SECRET = "client-secret";
 
-    const result = await collectCatalogMetadata("https://open.spotify.com/track/spotify-track-123");
+    const result = await collectCatalogMetadata(
+      "https://open.spotify.com/track/spotify-track-123",
+    );
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(fetchMock.mock.calls[0]?.[0]).toBe("https://accounts.spotify.com/api/token");
-    expect(fetchMock.mock.calls[1]?.[0]).toBe("https://api.spotify.com/v1/tracks/spotify-track-123");
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      "https://accounts.spotify.com/api/token",
+    );
+    expect(fetchMock.mock.calls[1]?.[0]).toBe(
+      "https://api.spotify.com/v1/tracks/spotify-track-123?market=US",
+    );
     expect(result).toMatchObject({
       platform: "spotify",
       catalogId: "spotify-track-123",
@@ -74,7 +82,9 @@ describe("Spotify deep catalog ingestion", () => {
     delete process.env.SPOTIFY_CLIENT_SECRET;
 
     await expect(
-      collectCatalogMetadata("https://open.spotify.com/track/spotify-track-123"),
+      collectCatalogMetadata(
+        "https://open.spotify.com/track/spotify-track-123",
+      ),
     ).rejects.toThrow("Spotify client credentials are required");
   });
 
@@ -88,7 +98,9 @@ describe("Spotify deep catalog ingestion", () => {
     process.env.SPOTIFY_CLIENT_SECRET = "client-secret";
 
     await expect(
-      collectCatalogMetadata("https://open.spotify.com/track/spotify-track-123"),
+      collectCatalogMetadata(
+        "https://open.spotify.com/track/spotify-track-123",
+      ),
     ).rejects.toThrow("Spotify token request failed with HTTP 401");
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
