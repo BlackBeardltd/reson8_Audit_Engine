@@ -170,7 +170,10 @@ export async function generateAuditReport(
       120,
     );
 
-    y = drawHeading(page, "Observed Sonic DNA", margin, y, bold);
+    const sonicHeading = input.sonicDna && input.sonicDna.provenance === "tidal_catalog_metadata"
+      ? "Catalog Sonic Profile (TIDAL metadata)"
+      : "Observed Sonic DNA";
+    y = drawHeading(page, sonicHeading, margin, y, bold);
     const dna = input.sonicDna
       ? [
           `BPM: ${text(input.sonicDna.bpm)}`,
@@ -182,7 +185,7 @@ export async function generateAuditReport(
           `Mood tags: ${text(input.sonicDna.moodTags)}`,
           `Genre context: ${text(input.sonicDna.genreContext)}`,
         ].join("\n")
-      : "No master-derived Sonic DNA was available for this audit.";
+      : "No master-derived or provider sonic profile was available for this audit.";
     y = addEditableField(pdf, page, font, "sonic_dna", dna, margin, y, 500, 120);
   }
 
