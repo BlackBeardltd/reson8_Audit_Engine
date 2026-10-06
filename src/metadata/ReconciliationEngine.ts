@@ -8,7 +8,7 @@ export type ReconciliationStatus = "reconciled" | "conflict" | "partial";
 
 export interface MetadataConflict {
   field: "title" | "artist" | "album" | "isrc" | "label" | "releaseDate";
-  values: string[];
+  values: readonly string[];
 }
 
 export interface MetadataReconciliation {
