@@ -258,6 +258,7 @@ export function createSupabaseAuditStore(
         .from("audit_events")
         .select("event_type,status,created_at")
         .eq("audit_job_id", jobId)
+        .neq("event_type", "audit_failed")
         .order("created_at", { ascending: false })
         .limit(1);
       if (eventError) throw new Error(`Unable to read audit events: ${eventError.message}`);
@@ -273,7 +274,6 @@ export function createSupabaseAuditStore(
         ar_assessment: 4,
         report_generated: 5,
         audit_completed: 5,
-        audit_failed: 5,
       };
       const currentStepIndex = latestEvent?.event_type && latestEvent.event_type in eventStep
         ? eventStep[latestEvent.event_type]
