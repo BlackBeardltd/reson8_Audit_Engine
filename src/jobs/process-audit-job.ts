@@ -8,7 +8,7 @@ import { reconcileMetadata, type MetadataReconciliation } from "../metadata/Reco
 
 export interface AuditJobRecord {
   id: string;
-  ownerId: string;
+  ownerId: string | null;
   sourceAudioPath: string | null;
   mimeType: string | null;
   sourceType: "master" | "dsp_link";

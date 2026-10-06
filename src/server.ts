@@ -1,6 +1,5 @@
 import Fastify from "fastify";
 import { readFile } from "node:fs/promises";
-import { extractBearerToken } from "./auth/bearer.js";
 import { createAuditJob } from "./jobs/create-audit-job.js";
 import { createCatalogAuditJob } from "./jobs/create-catalog-audit-job.js";
 import { MAX_AUDIO_FILE_BYTES } from "./jobs/audio-intake.js";
@@ -8,8 +7,6 @@ import { createSupabaseAuditStore } from "./integrations/supabase-audit-store.js
 import type { CreateAuditJobDependencies } from "./jobs/create-audit-job.js";
 
 export interface AuditStore {
-  authenticate(accessToken: string): Promise<string>;
-  resolvePublicOwnerId(): Promise<string>;
   createJobDependencies(): CreateAuditJobDependencies;
   getAuditStatus(jobId: string): Promise<{
     jobId: string;
@@ -70,21 +67,17 @@ export function buildServer(store: AuditStore = createSupabaseAuditStore()) {
   });
 
   app.post<{
-    Headers: { authorization?: string; };
     Body: { url?: string };
   }>("/v1/audits/catalog", async (request, reply) => {
     try {
-      const hasSession = Boolean(request.headers.authorization);
-      if (!hasSession && !allowPublicRequest(request.ip)) {
+      if (!allowPublicRequest(request.ip)) {
         return reply.code(429).send({
           error: "PUBLIC_RATE_LIMITED",
           message: "Public sample limit reached. Please try again later.",
         });
       }
 
-      const ownerId = hasSession
-        ? await store.authenticate(extractBearerToken(request.headers.authorization))
-        : await store.resolvePublicOwnerId();
+      const ownerId = null;
 
       const url = typeof request.body?.url === "string" ? request.body.url : "";
       if (!url) {
@@ -97,10 +90,6 @@ export function buildServer(store: AuditStore = createSupabaseAuditStore()) {
       const result = await createCatalogAuditJob(
         { ownerId, catalogUrl: url },
         {
-          ensureProfile: async (id) => {
-            const deps = store.createJobDependencies();
-            await deps.ensureProfile(id);
-          },
           createCatalogJob: async (input) => {
             const deps = store.createJobDependencies();
             return deps.createCatalogJob(input);
@@ -116,28 +105,9 @@ export function buildServer(store: AuditStore = createSupabaseAuditStore()) {
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unable to create catalog audit job";
-      if (message === "Authorization token is required" || message === "Invalid authentication token") {
-        return reply.code(401).send({ error: "UNAUTHORIZED", message });
-      }
       request.log.error({ err: error }, "catalog audit job creation failed");
       return reply.code(400).send({ error: "INVALID_CATALOG_URL", message });
     }
-  });
-
-  app.get("/v1/auth/config", async (_request, reply) => {
-    const supabaseUrl = process.env.SUPABASE_URL?.trim();
-    const supabasePublishableKey = process.env.SUPABASE_PUBLISHABLE_KEY?.trim();
-
-    if (!supabaseUrl || !supabasePublishableKey) {
-      return reply.code(503).send({
-        error: "AUTH_CONFIG_UNAVAILABLE",
-        message: "Browser authentication is not configured.",
-      });
-    }
-
-    return reply
-      .header("cache-control", "no-store")
-      .send({ supabaseUrl, supabasePublishableKey });
   });
 
   app.get("/health", async () => ({
@@ -161,7 +131,6 @@ export function buildServer(store: AuditStore = createSupabaseAuditStore()) {
 
   app.get<{
     Params: { jobId: string; tier: "sample" | "full" };
-    Headers: { authorization?: string };
   }>("/v1/audits/:jobId/reports/:tier", async (request, reply) => {
     const tier = request.params.tier;
     if (tier !== "sample" && tier !== "full") {
@@ -169,27 +138,13 @@ export function buildServer(store: AuditStore = createSupabaseAuditStore()) {
     }
 
     try {
-      let ownerId: string | undefined;
-      if (tier === "full") {
-        if (!request.headers.authorization) {
-          return reply.code(401).send({
-            error: "UNAUTHORIZED",
-            message: "Authentication is required to access the full report.",
-          });
-        }
-        ownerId = await store.authenticate(extractBearerToken(request.headers.authorization));
-      }
-
-      const report = await store.getAuditReport(request.params.jobId, tier, ownerId);
+      const report = await store.getAuditReport(request.params.jobId, tier);
       return reply
         .type(report.contentType)
         .header("content-disposition", `attachment; filename="${report.filename}"`)
         .send(Buffer.from(report.bytes));
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unable to retrieve report";
-      if (message === "Authorization token is required" || message === "Invalid authentication token") {
-        return reply.code(401).send({ error: "UNAUTHORIZED", message });
-      }
       if (message === "Full report access denied") {
         return reply.code(403).send({ error: "FORBIDDEN", message });
       }
@@ -209,17 +164,14 @@ export function buildServer(store: AuditStore = createSupabaseAuditStore()) {
     };
   }>("/v1/audits", async (request, reply) => {
     try {
-      const hasSession = Boolean(request.headers.authorization);
-      if (!hasSession && !allowPublicRequest(request.ip)) {
+      if (!allowPublicRequest(request.ip)) {
         return reply.code(429).send({
           error: "PUBLIC_RATE_LIMITED",
           message: "Public sample limit reached. Please try again later.",
         });
       }
 
-      const ownerId = hasSession
-        ? await store.authenticate(extractBearerToken(request.headers.authorization))
-        : await store.resolvePublicOwnerId();
+      const ownerId = null;
 
       const filename = request.headers["x-audio-filename"];
 
@@ -250,13 +202,6 @@ export function buildServer(store: AuditStore = createSupabaseAuditStore()) {
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unable to create audit job";
-
-      if (message === "Authorization token is required" || message === "Invalid authentication token") {
-        return reply.code(401).send({
-          error: "UNAUTHORIZED",
-          message,
-        });
-      }
 
       if (
         message === "Audio filename is required" ||

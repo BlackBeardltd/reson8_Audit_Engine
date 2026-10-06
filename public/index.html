@@ -39,14 +39,8 @@
           <p class="eyebrow">AUDIT / NEW INTAKE</p>
           <h1>Submit a recording for evidence-grade A&R analysis.</h1>
         </div>
-        <div class="auth-box" id="authBox">
-          <div class="auth-status" id="authStatus">AUTHENTICATION INITIALIZING…</div>
-          <form class="auth-form" id="authForm">
-            <input id="authEmail" type="email" autocomplete="email" placeholder="Owner email" required />
-            <input id="authPassword" type="password" autocomplete="current-password" placeholder="Password" required />
-            <button class="ghost-btn" type="submit" id="authSubmit">Sign in</button>
-          </form>
-          <button class="ghost-btn hidden" type="button" id="authSignOut">Sign out</button>
+        <div class="auth-box" aria-label="Intake access status">
+          <div class="auth-status">PUBLIC INTAKE ENABLED</div>
         </div>
       </header>
 
@@ -131,7 +125,7 @@
               <div><span>SERVER HASH</span><strong id="serverHash">—</strong></div>
               <div><span>STATUS</span><strong class="queued" id="auditStatus">QUEUED</strong></div>
             </div>
-            <p id="resultMessage">Your recording is now in the private processing queue. Recognition, measurement and reconciliation run as separate evidence stages.</p>
+            <p id="resultMessage">Your recording is now in the processing queue. Recognition, measurement and reconciliation run as separate evidence stages.</p>
             <div class="report-actions hidden" id="reportActions">
               <a class="primary-btn" id="sampleReportLink" href="#" download>Download sample report <b>↓</b></a>
               <a class="ghost-btn hidden" id="fullReportLink" href="#" download>Download full report <b>↓</b></a>
@@ -155,7 +149,7 @@
               <li><span>03</span><div><strong>Sonic measurement</strong><small>Full-master audio analysis</small></div></li>
               <li><span>04</span><div><strong>Reconciliation</strong><small>Identifiers + source evidence</small></div></li>
               <li><span>05</span><div><strong>A&R assessment</strong><small>Evidence-bound interpretation</small></div></li>
-              <li><span>06</span><div><strong>Private report</strong><small>Song-specific PDF output</small></div></li>
+              <li><span>06</span><div><strong>Report</strong><small>Song-specific PDF output</small></div></li>
             </ol>
           </div>
 

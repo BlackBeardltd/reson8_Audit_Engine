@@ -20,49 +20,17 @@ const store = {
   }),
 };
 
-describe("public Supabase browser configuration", () => {
-  const originalUrl = process.env.SUPABASE_URL;
-  const originalPublishable = process.env.SUPABASE_PUBLISHABLE_KEY;
-  const originalSecret = process.env.SUPABASE_SECRET_KEY;
+describe("authentication-disabled API surface", () => {
+  it("does not expose a browser authentication configuration endpoint", async () => {
+    const app = buildServer({
+      authenticate: async () => { throw new Error("not used"); },
+      resolvePublicOwnerId: async () => null,
+      createJobDependencies: () => { throw new Error("not used"); },
+    } as any);
 
-  beforeEach(() => {
-    process.env.SUPABASE_URL = "https://gznwamoxuxzaayjaxvlo.supabase.co";
-    process.env.SUPABASE_PUBLISHABLE_KEY = "sb_publishable_test_key";
-    process.env.SUPABASE_SECRET_KEY = "postgres-secret-must-never-leak";
-  });
-
-  afterEach(() => {
-    process.env.SUPABASE_URL = originalUrl;
-    process.env.SUPABASE_PUBLISHABLE_KEY = originalPublishable;
-    process.env.SUPABASE_SECRET_KEY = originalSecret;
-  });
-
-  it("exposes only browser-safe Supabase configuration", async () => {
-    const app = buildServer(store);
     const response = await app.inject({ method: "GET", url: "/v1/auth/config" });
 
-    expect(response.statusCode).toBe(200);
-    expect(response.json()).toEqual({
-      supabaseUrl: "https://gznwamoxuxzaayjaxvlo.supabase.co",
-      supabasePublishableKey: "sb_publishable_test_key",
-    });
-    expect(response.body).not.toContain("postgres-secret-must-never-leak");
-
-    await app.close();
-  });
-
-  it("refuses to expose browser configuration when the publishable key is missing", async () => {
-    delete process.env.SUPABASE_PUBLISHABLE_KEY;
-
-    const app = buildServer(store);
-    const response = await app.inject({ method: "GET", url: "/v1/auth/config" });
-
-    expect(response.statusCode).toBe(503);
-    expect(response.json()).toEqual({
-      error: "AUTH_CONFIG_UNAVAILABLE",
-      message: "Browser authentication is not configured.",
-    });
-
+    expect(response.statusCode).toBe(404);
     await app.close();
   });
 });
