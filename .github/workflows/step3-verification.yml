@@ -5,9 +5,13 @@ on:
   push:
     branches: [main, "fix/step3-tidal-sonic-metadata"]
 
+permissions:
+  contents: read
+
 jobs:
   verify:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -17,7 +21,12 @@ jobs:
       - run: npm run build
       - run: |
           for i in 1 2 3 4 5; do
-            echo "Focused process-audit verification cycle $i/5"
+            echo "TIDAL deep-ingestion verification cycle $i/5"
+            npm test -- tests/tidal-deep-ingestion.test.ts
+          done
+      - run: |
+          for i in 1 2 3 4 5; do
+            echo "DSP process verification cycle $i/5"
             npm test -- tests/process-audit-job.test.ts
           done
       - run: |
@@ -27,7 +36,11 @@ jobs:
           done
       - run: |
           for i in 1 2 3 4 5; do
-            echo "TIDAL deep-ingestion verification cycle $i/5"
-            npm test -- tests/tidal-deep-ingestion.test.ts
+            echo "Full-suite verification cycle $i/5"
+            npm test
           done
-      - run: npm test
+      - run: |
+          for i in 1 2 3 4 5; do
+            echo "TypeScript build verification cycle $i/5"
+            npm run build
+          done
