@@ -12,7 +12,7 @@ describe("provider diagnostics", () => {
       operation: "recognize",
       status: 200,
       ok: true,
-      payload: { result: { title: "Song" }, api_token: "must-not-be-present-in-log" },
+      payload: { result: { title: "Song" }, api_token: "must-not-be-present-in-log", nested: { client_secret: "also-secret" } },
       auditJobId: "job-1",
     });
 
@@ -21,5 +21,9 @@ describe("provider diagnostics", () => {
     expect(line).toContain('"provider":"audd"');
     expect(line).toContain('"httpStatus":200');
     expect(line).toContain("Song");
+    expect(line).toContain('"api_token":"[REDACTED]"');
+    expect(line).toContain('"client_secret":"[REDACTED]"');
+    expect(line).not.toContain("must-not-be-present-in-log");
+    expect(line).not.toContain("also-secret");
   });
 });
