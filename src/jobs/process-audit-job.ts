@@ -3,7 +3,7 @@ import type { CatalogMetadata } from "../providers/dsp/catalog.js";
 import type { ArAssessment } from "../providers/groq/client.js";
 import type { AuditReportInput, AuditReportTier } from "../reports/generate-audit-report.js";
 import { analyzePcm, type SonicDnaFeatures } from "../audio/sonic-dna.js";
-import { MetadataEngine, type TrackIdentity } from "../metadata/MetadataEngine.js";
+import type { TrackIdentity } from "../metadata/MetadataEngine.js";
 import { reconcileMetadata, type MetadataReconciliation } from "../metadata/ReconciliationEngine.js";
 
 export interface AuditJobRecord {
@@ -123,7 +123,16 @@ function identityEvidence(identity: TrackIdentity): Record<string, unknown> {
   };
 }
 
-function reconciliationEvidence(reconciliation: MetadataReconciliation): Record<string, unknown> {\n  return {\n    status: reconciliation.status,\n    reconciledFields: reconciliation.reconciledFields,\n    conflicts: reconciliation.conflicts,\n    identity: identityEvidence(reconciliation.identity),\n  };\n}\n\nfunction catalogEvidence(metadata: CatalogMetadata, identity: TrackIdentity, reconciliation?: MetadataReconciliation): Record<string, unknown> {
+function reconciliationEvidence(reconciliation: MetadataReconciliation): Record<string, unknown> {
+  return {
+    status: reconciliation.status,
+    reconciledFields: reconciliation.reconciledFields,
+    conflicts: reconciliation.conflicts,
+    identity: identityEvidence(reconciliation.identity),
+  };
+}
+
+function catalogEvidence(metadata: CatalogMetadata, identity: TrackIdentity, reconciliation?: MetadataReconciliation): Record<string, unknown> {
   return {
     status: metadata.evidenceStatus,
     platform: metadata.platform,
