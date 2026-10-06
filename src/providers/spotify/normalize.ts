@@ -1,1 +1,48 @@
-import type { CatalogMetadata } from "../dsp/catalog.js";\n\ntype SpotifyArtist = { id?: unknown; name?: unknown; external_urls?: { spotify?: unknown } };\ntype SpotifyTrack = {\n  id?: unknown; name?: unknown; artists?: SpotifyArtist[];\n  album?: { id?: unknown; name?: unknown; release_date?: unknown; external_urls?: { spotify?: unknown }; images?: Array<{ url?: unknown }> };\n  external_ids?: { isrc?: unknown; upc?: unknown; ean?: unknown };\n  external_urls?: { spotify?: unknown };\n  duration_ms?: unknown; preview_url?: unknown; popularity?: unknown; is_playable?: unknown;\n};\n\nconst stringValue = (value: unknown): string | null => typeof value === "string" && value.trim() ? value.trim() : null;\nconst normalizedIsrc = (value: unknown): string | null => {\n  const valueString = stringValue(value);\n  return valueString ? valueString.replace(/[\\s-]/g, "").toUpperCase() : null;\n};\n\nexport function normalizeSpotifyTrack(sourceUrl: string, track: SpotifyTrack): CatalogMetadata {\n  const artist = track.artists?.map((entry) => stringValue(entry.name)).find(Boolean) ?? null;\n  const title = stringValue(track.name);\n  const album = track.album;\n  const spotifyId = stringValue(track.id);\n  const canonicalUrl = stringValue(track.external_urls?.spotify) ?? sourceUrl;\n  const isrc = normalizedIsrc(track.external_ids?.isrc);\n  const upc = stringValue(track.external_ids?.upc) ?? stringValue(track.external_ids?.ean);\n  return {\n    platform: "spotify", sourceUrl, canonicalUrl, catalogId: spotifyId, artist, title,\n    album: stringValue(album?.name), releaseDate: stringValue(album?.release_date), isrc, upc,\n    label: null, genre: null, artworkUrl: stringValue(album?.images?.[0]?.url),\n    previewUrl: stringValue(track.preview_url), externalIds: spotifyId ? { spotify: spotifyId } : {},\n    raw: track as Record<string, unknown>, evidenceStatus: title && artist ? "verified" : "partial",\n  };\n}
+import type { CatalogMetadata } from "../dsp/catalog.js";
+
+type SpotifyArtist = { id?: unknown; name?: unknown; external_urls?: { spotify?: unknown } };
+type SpotifyTrack = {
+  id?: unknown; name?: unknown; artists?: SpotifyArtist[];
+  album?: { id?: unknown; name?: unknown; release_date?: unknown; external_urls?: { spotify?: unknown }; images?: Array<{ url?: unknown }> };
+  external_ids?: { isrc?: unknown; upc?: unknown; ean?: unknown };
+  external_urls?: { spotify?: unknown };
+  duration_ms?: unknown; preview_url?: unknown; popularity?: unknown; is_playable?: unknown;
+};
+
+const stringValue = (value: unknown): string | null =>
+  typeof value === "string" && value.trim() ? value.trim() : null;
+
+const normalizedIsrc = (value: unknown): string | null => {
+  const valueString = stringValue(value);
+  return valueString ? valueString.replace(/[\\s-]/g, "").toUpperCase() : null;
+};
+
+export function normalizeSpotifyTrack(sourceUrl: string, track: SpotifyTrack): CatalogMetadata {
+  const artist = track.artists?.map((entry) => stringValue(entry.name)).find(Boolean) ?? null;
+  const title = stringValue(track.name);
+  const album = track.album;
+  const spotifyId = stringValue(track.id);
+  const canonicalUrl = stringValue(track.external_urls?.spotify) ?? sourceUrl;
+  const isrc = normalizedIsrc(track.external_ids?.isrc);
+  const upc = stringValue(track.external_ids?.upc) ?? stringValue(track.external_ids?.ean);
+
+  return {
+    platform: "spotify",
+    sourceUrl,
+    canonicalUrl,
+    catalogId: spotifyId,
+    artist,
+    title,
+    album: stringValue(album?.name),
+    releaseDate: stringValue(album?.release_date),
+    isrc,
+    upc,
+    label: null,
+    genre: null,
+    artworkUrl: stringValue(album?.images?.[0]?.url),
+    previewUrl: stringValue(track.preview_url),
+    externalIds: spotifyId ? { spotify: spotifyId } : {},
+    raw: track as Record<string, unknown>,
+    evidenceStatus: title && artist ? "verified" : "partial",
+  };
+}
