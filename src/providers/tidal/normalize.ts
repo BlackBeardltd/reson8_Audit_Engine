@@ -4,6 +4,7 @@ type TidalResource = {
   type?: unknown;
   id?: unknown;
   attributes?: Record<string, unknown>;
+  relationships?: Record<string, unknown>;
 };
 
 type TidalDocument = {
