@@ -149,6 +149,7 @@ function catalogEvidence(metadata: CatalogMetadata, identity: TrackIdentity, rec
     source: metadata.platform,
     identity: identityEvidence(identity),
     catalogPopularity: metadata.catalogPopularity,
+    catalogPopularityScale: metadata.catalogPopularityScale,
     sonicProfile: metadata.sonicProfile,
   };
 }
