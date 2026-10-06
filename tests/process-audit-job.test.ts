@@ -177,8 +177,8 @@ describe("processAuditJob", () => {
       album: "AudD Album",
       isrc: "USABC1234567",
       identity: {
-        artist: "Spotify Artist",
-        title: "Spotify Title",
+        artist: "TIDAL Artist",
+        title: "TIDAL Title",
         album: "AudD Album",
         sourceProviders: ["tidal", "audd"],
       },
