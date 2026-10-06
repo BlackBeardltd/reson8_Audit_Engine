@@ -243,16 +243,18 @@ export async function processAuditJob(
         sonicDna,
         catalogMetadata: catalogEvidence(metadata, identity),
       });
-    await deps.saveAssessment(jobId, assessment);
+      await deps.saveAssessment(jobId, assessment);
+
       const generatedAt = new Date().toISOString();
       for (const tier of ["sample", "full"] as const) {
-      const pdf = await deps.generateReport(
+        const pdf = await deps.generateReport(
           { auditId: jobId, generatedAt, evidence, sonicDna, assessment },
           tier,
         );
-      await deps.saveReport(jobId, tier, pdf);
+        await deps.saveReport(jobId, tier, pdf);
       }
-    await deps.markCompleted(jobId);
+
+      await deps.markCompleted(jobId);
       return { status: "completed" };
     }
 
