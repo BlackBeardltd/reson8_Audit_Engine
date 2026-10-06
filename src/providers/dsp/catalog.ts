@@ -53,7 +53,7 @@ async function tidal(u:URL){
   const track=await client.getTrack(id);
   const metadata = normalizeTidalTrack(u.toString(), track);
 
-  if (metadata.isrc && !metadata.genre) {
+  if (metadata.isrc && (!metadata.genre || !metadata.label || metadata.catalogPopularity === null)) {
     try {
       const spotifyClient = new SpotifyClient();
       const spotifyTrack = await spotifyClient.getTrackByIsrc(metadata.isrc);
