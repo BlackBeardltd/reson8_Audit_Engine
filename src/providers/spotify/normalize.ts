@@ -42,6 +42,7 @@ export function normalizeSpotifyTrack(sourceUrl: string, track: SpotifyTrack): C
     artworkUrl: stringValue(album?.images?.[0]?.url),
     previewUrl: stringValue(track.preview_url),
     externalIds: spotifyId ? { spotify: spotifyId } : {},
+    sonicProfile: null,
     raw: track as Record<string, unknown>,
     evidenceStatus: title && artist ? "verified" : "partial",
   };
