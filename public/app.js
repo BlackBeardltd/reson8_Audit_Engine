@@ -1,8 +1,16 @@
 const input=document.querySelector("#audioFile"),dropzone=document.querySelector("#dropzone"),filePanel=document.querySelector("#filePanel"),fileName=document.querySelector("#fileName"),fileDetails=document.querySelector("#fileDetails"),removeFile=document.querySelector("#removeFile"),submit=document.querySelector("#submitAudit"),actionMessage=document.querySelector("#actionMessage"),preflightState=document.querySelector("#preflightState"),resultPanel=document.querySelector("#resultPanel"),jobId=document.querySelector("#jobId"),serverHash=document.querySelector("#serverHash");
-const auditStatus=document.querySelector("#auditStatus"),resultMessage=document.querySelector("#resultMessage"),reportActions=document.querySelector("#reportActions"),fullReportLink=document.querySelector("#fullReportLink");
+const auditStatus=document.querySelector("#auditStatus"),resultMessage=document.querySelector("#resultMessage"),reportActions=document.querySelector("#reportActions"),fullReportLink=document.querySelector("#fullReportLink"),evidenceChain=document.querySelector("#evidenceChain");
 const masterTab=document.querySelector("#masterTab"),dspTab=document.querySelector("#dspTab"),masterSource=document.querySelector("#masterSource"),dspSource=document.querySelector("#dspSource"),catalogUrl=document.querySelector("#catalogUrl"),detectCatalog=document.querySelector("#detectCatalog"),catalogPlatform=document.querySelector("#catalogPlatform"),catalogPreview=document.querySelector("#catalogPreview"),catalogState=document.querySelector("#catalogState"),catalogCheck=document.querySelector("#catalogCheck");
 const checks={type:document.querySelector("#checkType"),size:document.querySelector("#checkSize"),hash:document.querySelector("#checkHash")};
 const MAX_BYTES=50*1024*1024,AUDIO_EXTENSIONS=new Set(["mp3","wav","flac","aac","ogg","m4a"]);
+const EVIDENCE_STEPS=[
+  {number:"01",title:"Secure intake",description:"Private master + integrity hash"},
+  {number:"02",title:"Recognition",description:"AudD evidence sample"},
+  {number:"03",title:"Sonic measurement",description:"Full-master audio analysis"},
+  {number:"04",title:"Reconciliation",description:"Identifiers + source evidence"},
+  {number:"05",title:"A&R assessment",description:"Evidence-bound interpretation"},
+  {number:"06",title:"Report",description:"Song-specific PDF output"}
+];
 let selectedFile=null,digest=null,mode="master",catalogReady=false,pollTimer=null,currentAuditPayload=null;
 
 function setCheck(el,state,value){el.classList.remove("ok","bad");if(state)el.classList.add(state);el.querySelector("b").textContent=value;}
@@ -39,9 +47,19 @@ async function previewCatalog(){
   }catch(e){catalogState.textContent="Invalid source";catalogPlatform.textContent="Unsupported or malformed URL";setCheck(catalogCheck,"bad","INVALID");actionMessage.textContent=e instanceof Error?e.message:"Invalid catalog URL";}
   updateSubmit();
 }
+function renderEvidenceChain(currentStepIndex=0){
+  if(!evidenceChain)return;
+  const active=Math.min(Math.max(Number(currentStepIndex)||0,0),EVIDENCE_STEPS.length-1);
+  evidenceChain.innerHTML=EVIDENCE_STEPS.map((step,index)=>{
+    const current=index===active,completed=index<active;
+    const classes=[current?"current":"",completed?"completed":""].filter(Boolean).join(" ");
+    return '<li class="'+classes+'" aria-current="'+(current?"step":"false")+'"><span>'+step.number+'</span><div><strong>'+step.title+'</strong><small>'+step.description+'</small></div></li>';
+  }).join("");
+}
 function stopPolling(){if(pollTimer){clearTimeout(pollTimer);pollTimer=null;}}
 function applyAuditPayload(payload){
   currentAuditPayload=payload;
+  renderEvidenceChain(payload.currentStepIndex ?? (payload.status==="completed" ? 5 : 0));
   auditStatus.textContent=(payload.status||"unknown").toUpperCase();
   auditStatus.className=payload.status==="failed"?"failed":payload.status==="completed"?"completed":"queued";
   if(payload.status==="completed"&&payload.full?.available){
@@ -86,4 +104,5 @@ masterTab.addEventListener("click",()=>setMode("master"));dspTab.addEventListene
 ["dragenter","dragover"].forEach(type=>dropzone.addEventListener(type,e=>{e.preventDefault();dropzone.classList.add("dragover");}));
 ["dragleave","drop"].forEach(type=>dropzone.addEventListener(type,e=>{e.preventDefault();dropzone.classList.remove("dragover");}));
 dropzone.addEventListener("drop",e=>{const f=e.dataTransfer?.files?.[0];if(f)inspect(f);});
+renderEvidenceChain(0);
 setMode("master");
