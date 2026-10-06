@@ -21,8 +21,8 @@ describe("provider diagnostics", () => {
     expect(line).toContain('"provider":"audd"');
     expect(line).toContain('"httpStatus":200');
     expect(line).toContain("Song");
-    expect(line).toContain('"api_token":"[REDACTED]"');
-    expect(line).toContain('"client_secret":"[REDACTED]"');
+    expect(line).toContain('\"api_token\":\"[REDACTED]\"');
+    expect(line).toContain('\"client_secret\":\"[REDACTED]\"');
     expect(line).not.toContain("must-not-be-present-in-log");
     expect(line).not.toContain("also-secret");
   });
