@@ -39,7 +39,15 @@
           <p class="eyebrow">AUDIT / NEW INTAKE</p>
           <h1>Submit a recording for evidence-grade A&R analysis.</h1>
         </div>
-        <div class="status-chip"><span></span> ENGINE READY</div>
+        <div class="auth-box" id="authBox">
+          <div class="auth-status" id="authStatus">AUTHENTICATION INITIALIZING…</div>
+          <form class="auth-form" id="authForm">
+            <input id="authEmail" type="email" autocomplete="email" placeholder="Owner email" required />
+            <input id="authPassword" type="password" autocomplete="current-password" placeholder="Password" required />
+            <button class="ghost-btn" type="submit" id="authSubmit">Sign in</button>
+          </form>
+          <button class="ghost-btn hidden" type="button" id="authSignOut">Sign out</button>
+        </div>
       </header>
 
       <section class="workspace" id="intake">
