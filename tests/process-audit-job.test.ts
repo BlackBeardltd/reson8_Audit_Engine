@@ -90,6 +90,89 @@ describe("processAuditJob", () => {
     ]);
   });
 
+  it("merges DSP identity with partial AudD enrichment before Groq and PDF generation", async () => {
+    const assessmentInputs: Record<string, unknown>[] = [];
+    const reportInputs: Record<string, unknown>[] = [];
+
+    const result = await processAuditJob("job-dsp", {
+      getJob: async () => ({
+        id: "job-dsp",
+        ownerId: "owner-123",
+        sourceAudioPath: null,
+        mimeType: null,
+        sourceType: "dsp_link" as const,
+        catalogUrl: "https://open.spotify.com/track/spotify-123",
+        status: "queued" as const,
+      }),
+      markProcessing: async () => {},
+      collectCatalogMetadata: async () => ({
+        platform: "spotify" as const,
+        sourceUrl: "https://open.spotify.com/track/spotify-123",
+        canonicalUrl: "https://open.spotify.com/track/spotify-123",
+        catalogId: "spotify-123",
+        artist: "Spotify Artist",
+        title: "Spotify Title",
+        album: null,
+        releaseDate: null,
+        isrc: null,
+        upc: null,
+        label: null,
+        genre: null,
+        artworkUrl: null,
+        previewUrl: "https://example.com/preview.mp3",
+        externalIds: { spotify: "spotify-123" },
+        raw: {},
+        evidenceStatus: "verified" as const,
+      }),
+      recognizeUrl: async () => ({
+        matched: true as const,
+        artist: null,
+        title: null,
+        album: "AudD Album",
+        isrc: "US-ABC-12-34567",
+      }),
+      saveRecognition: async () => {},
+      saveEvidence: async () => {},
+      saveCatalogMetadata: async () => {},
+      downloadMaster: async () => new Uint8Array(),
+      createRecognitionSample: async () => new Uint8Array(),
+      recognize: async () => ({ matched: false as const }),
+      decode: async () => ({ samples: new Float32Array(), sampleRate: 44100, channels: 1 }),
+      saveSonicDna: async () => {},
+      generateAssessment: async (input) => {
+        assessmentInputs.push(input.evidence);
+        return assessment;
+      },
+      saveAssessment: async () => {},
+      generateReport: async (input) => {
+        reportInputs.push(input.evidence);
+        return new Uint8Array([37, 80, 68, 70, 45]);
+      },
+      saveReport: async () => {},
+      markCompleted: async () => {},
+      markFailed: async () => {},
+    });
+
+    expect(result.status).toBe("completed");
+    expect(assessmentInputs[0]).toMatchObject({
+      artist: "Spotify Artist",
+      title: "Spotify Title",
+      album: "AudD Album",
+      isrc: "USABC1234567",
+      identity: {
+        artist: "Spotify Artist",
+        title: "Spotify Title",
+        album: "AudD Album",
+        sourceProviders: ["spotify", "audd"],
+      },
+    });
+    expect(reportInputs[1]).toMatchObject({
+      artist: "Spotify Artist",
+      title: "Spotify Title",
+      album: "AudD Album",
+    });
+  });
+
   it("marks the job failed and preserves the error when processing fails", async () => {
     let failure = "";
     const result = await processAuditJob("job-123", {
