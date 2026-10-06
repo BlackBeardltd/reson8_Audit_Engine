@@ -44,12 +44,11 @@ function applyAuditPayload(payload){
   currentAuditPayload=payload;
   auditStatus.textContent=(payload.status||"unknown").toUpperCase();
   auditStatus.className=payload.status==="failed"?"failed":payload.status==="completed"?"completed":"queued";
-  if(payload.status==="completed"&&payload.sample?.available){
-    sampleReportLink.href="/v1/audits/"+encodeURIComponent(payload.jobId)+"/reports/sample";
-    reportActions.classList.remove("hidden");
+  if(payload.status==="completed"&&payload.full?.available){
     fullReportLink.href="/v1/audits/"+encodeURIComponent(payload.jobId)+"/reports/full";
+    reportActions.classList.remove("hidden");
     fullReportLink.classList.remove("hidden");
-    resultMessage.textContent="Audit complete. Your sample and full report are ready.";
+    resultMessage.textContent="Audit complete. Your full report is ready.";
   }
 }
 async function pollAudit(job){
