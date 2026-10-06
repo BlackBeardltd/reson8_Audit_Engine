@@ -193,7 +193,11 @@ export async function processAuditJob(
         audd: recognition ? recognitionMetadataInput(recognition) : null,
       });
       const evidence = recognition
-        ? { ...recognitionEvidence(recognition), identity: identityEvidence(identity) }
+        ? {
+            ...recognitionEvidence(recognition),
+            ...identityEvidence(identity),
+            identity: identityEvidence(identity),
+          }
         : catalogEvidence(metadata, identity);
     const assessment = await deps.generateAssessment({
         evidence,
@@ -235,6 +239,7 @@ export async function processAuditJob(
     });
     const evidence = {
       ...recognitionEvidence(recognition),
+      ...identityEvidence(identity),
       identity: identityEvidence(identity),
     };
     const sonicDna = dnaEvidence(normalizedDna);
