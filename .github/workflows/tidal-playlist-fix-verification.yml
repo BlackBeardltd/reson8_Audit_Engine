@@ -3,6 +3,9 @@ on:
   push:
     branches:
       - fix/tidal-playlist-validation
+  pull_request:
+    branches:
+      - main
 jobs:
   verify:
     runs-on: ubuntu-latest
