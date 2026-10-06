@@ -145,6 +145,7 @@ export function normalizeTidalTrack(
     isrc,
     upc: null,
     catalogPopularity: numberValue(attributes.popularity),
+    catalogPopularityScale: numberValue(attributes.popularity) === null ? null : "0_1",
     label,
     genre: genres[0] ?? stringValue(attributes.genre),
     artworkUrl: null,
