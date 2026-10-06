@@ -66,9 +66,7 @@ export function normalizeTidalTrack(
   const albumTitle = stringValue(album?.attributes?.title);
 
   const tidalId = stringValue(track?.id);
-  const canonicalUrl =
-    stringValue(document.links?.self) ??
-    `https://tidal.com/browse/track/${tidalId ?? ""}`;
+  const canonicalUrl = sourceUrl;
 
   const releaseDate =
     stringValue(attributes.releaseDate) ??
