@@ -73,7 +73,7 @@ export function analyzePcm(samples: Float32Array, sampleRate: number): SonicDnaF
     let weighted = 0;
 
     for (let bin = 1; bin <= bins; bin++) {
-      const frequency = (bin * analysisSampleRate) / (fftWindow * decimation);
+      const frequency = (bin * analysisSampleRate) / fftWindow;
       let real = 0;
       let imag = 0;
       for (let n = 0; n < fftWindow; n += decimation) {
@@ -97,7 +97,7 @@ export function analyzePcm(samples: Float32Array, sampleRate: number): SonicDnaF
     const rolloffTarget = total * 0.85;
 
     for (let i = 0; i < magnitudes.length; i++) {
-      const frequency = ((i + 1) * analysisSampleRate) / (fftWindow * decimation);
+      const frequency = ((i + 1) * analysisSampleRate) / fftWindow;
       variance += ((frequency - centroid) ** 2) * magnitudes[i];
       cumulative += magnitudes[i];
       if (!rolloffFrequency && cumulative >= rolloffTarget) rolloffFrequency = frequency;
