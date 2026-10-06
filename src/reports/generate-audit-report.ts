@@ -139,6 +139,15 @@ export async function generateAuditReport(
       58,
     );
 
+    y = drawHeading(page, "Catalog performance signal", margin, y, bold);
+    const catalogPopularity = input.evidence.catalogPopularity;
+    const catalogPopularityScale = input.evidence.catalogPopularityScale;
+    const catalogPlatform = text(input.evidence.platform);
+    const popularityText = catalogPopularity === null || catalogPopularity === undefined
+      ? "No provider popularity signal was available."
+      : `${catalogPlatform} catalog popularity: ${text(catalogPopularity)} (provider scale: ${text(catalogPopularityScale)}). This is a catalog signal, not streams, revenue, sales, or audience performance.`;
+    y = addEditableField(pdf, page, font, "catalog_performance_signal", popularityText, margin, y, 500, 58);
+
     y = drawHeading(page, "Release strategy", margin, y, bold);
     y = addEditableField(
       pdf,
