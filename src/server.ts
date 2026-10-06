@@ -160,7 +160,7 @@ export function buildServer(store: AuditStore = createSupabaseAuditStore()) {
       if (!allowPublicRequest(request.ip)) {
         return reply.code(429).send({
           error: "PUBLIC_RATE_LIMITED",
-          message: "Public sample limit reached. Please try again later.",
+          message: "Public audit limit reached. Please try again later.",
         });
       }
 
