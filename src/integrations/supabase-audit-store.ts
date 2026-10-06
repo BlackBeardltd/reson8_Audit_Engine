@@ -26,6 +26,7 @@ export interface SupabaseAuditStore {
   getAuditStatus(jobId: string): Promise<{
     jobId: string;
     status: "queued" | "processing" | "completed" | "failed";
+    currentStepIndex: number;
     errorMessage?: string | null;
     full: { available: boolean; version?: number };
   }>;
@@ -253,6 +254,33 @@ export function createSupabaseAuditStore(
       if (jobError) throw new Error(`Unable to read audit status: ${jobError.message}`);
       if (!job) throw new Error("Audit job not found");
 
+      const { data: events, error: eventError } = await admin
+        .from("audit_events")
+        .select("event_type,status,created_at")
+        .eq("audit_job_id", jobId)
+        .order("created_at", { ascending: false })
+        .limit(1);
+      if (eventError) throw new Error(`Unable to read audit events: ${eventError.message}`);
+
+      const latestEvent = events?.[0];
+      const eventStep: Record<string, number> = {
+        processing_claimed: 0,
+        processing_started: 0,
+        recognition: 1,
+        catalog_ingestion: 1,
+        sonic_dna: 2,
+        evidence_reconciliation: 3,
+        ar_assessment: 4,
+        report_generated: 5,
+        audit_completed: 5,
+        audit_failed: 5,
+      };
+      const currentStepIndex = latestEvent?.event_type && latestEvent.event_type in eventStep
+        ? eventStep[latestEvent.event_type]
+        : job.status === "completed"
+          ? 5
+          : 0;
+
       const { data: reports, error: reportError } = await admin
         .from("audit_reports")
         .select("tier,version,access_status")
@@ -271,6 +299,7 @@ export function createSupabaseAuditStore(
       return {
         jobId,
         status: job.status as "queued" | "processing" | "completed" | "failed",
+        currentStepIndex,
         errorMessage: job.error_message as string | null,
         full: full ? { available: true, version: full.version } : { available: false },
       };
