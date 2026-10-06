@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { detectDspPlatform } from "../src/providers/dsp/catalog.js";
+import { collectCatalogMetadata, detectDspPlatform } from "../src/providers/dsp/catalog.js";
 
 describe("DSP catalog URL detection", () => {
   it("detects supported track hosts", () => {
@@ -9,9 +9,16 @@ describe("DSP catalog URL detection", () => {
     expect(detectDspPlatform("https://www.deezer.com/track/123")).toBe("deezer");
     expect(detectDspPlatform("https://tidal.com/browse/track/123")).toBe("tidal");
   });
+
   it("rejects unsupported or unsafe URLs", () => {
     expect(detectDspPlatform("http://open.spotify.com/track/123")).toBe("unknown");
     expect(detectDspPlatform("https://example.com/track/123")).toBe("unknown");
     expect(detectDspPlatform("https://user:pass@open.spotify.com/track/123")).toBe("unknown");
+  });
+
+  it("reports TIDAL playlist URLs as unsupported for single-track audits", async () => {
+    await expect(
+      collectCatalogMetadata("https://tidal.com/playlist/406948b1-a8d4-493d-9672-90df47580540"),
+    ).rejects.toThrow("TIDAL playlist URLs are not supported for single-track audits");
   });
 });
