@@ -19,7 +19,7 @@ const HOSTS: Record<string,DspPlatform> = {
 };
 
 function normalizeUrl(input:string){const u=new URL(input.trim());if(u.protocol!=="https:")throw new Error("DSP URL must use HTTPS");if(u.username||u.password)throw new Error("DSP URL must not contain credentials");if(!HOSTS[u.hostname.toLowerCase()])throw new Error("Unsupported DSP or catalog URL");return u;}
-function idFromPath(u:URL,p:DspPlatform){const a=u.pathname.split("/").filter(Boolean);if(p==="spotify"){const i=a.indexOf("track");return i>=0?a[i+1]??null:null;}if(p==="apple_music"){const i=a.indexOf("i");return i>=0?a[i+1]??null:u.searchParams.get("i");}if(p==="deezer"){const i=a.indexOf("track");return i>=0?a[i+1]??null:null;}return u.searchParams.get("v")??(u.hostname==="youtu.be"?a[0]??null:null);}
+function idFromPath(u:URL,p:DspPlatform){const a=u.pathname.split("/").filter(Boolean);if(p==="spotify"){const i=a.indexOf("track");return i>=0?a[i+1]??null:null;}if(p==="apple_music"){const i=a.indexOf("i");return i>=0?a[i+1]??null:u.searchParams.get("i");}if(p==="deezer"){const i=a.indexOf("track");return i>=0?a[i+1]??null:null;}if(p==="tidal"){const i=a.indexOf("track");return i>=0?a[i+1]??null:null;}return u.searchParams.get("v")??(u.hostname==="youtu.be"?a[0]??null:null);}
 function base(p:DspPlatform,u:URL):CatalogMetadata{return{platform:p,sourceUrl:u.toString(),canonicalUrl:u.toString(),catalogId:idFromPath(u,p),artist:null,title:null,album:null,releaseDate:null,isrc:null,upc:null,label:null,genre:null,artworkUrl:null,previewUrl:null,externalIds:{},raw:{},evidenceStatus:"partial"};}
 
 async function spotify(u:URL){
