@@ -181,7 +181,7 @@ describe("processAuditJob", () => {
         sourceProviders: ["tidal", "audd"],
       },
     });
-    expect(reportInputs[1]).toMatchObject({
+    expect(reportInputs[0]).toMatchObject({
       artist: "TIDAL Artist",
       title: "TIDAL Title",
       album: "AudD Album",
