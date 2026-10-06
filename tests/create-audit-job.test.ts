@@ -2,11 +2,11 @@ import { describe, expect, it } from "vitest";
 import { createAuditJob } from "../src/jobs/create-audit-job.js";
 
 describe("createAuditJob", () => {
-  it("creates a queued job, stores the master under the owner namespace, and returns the job id", async () => {
+  it("creates an anonymous queued job under the anonymous storage namespace", async () => {
     const calls: string[] = [];
     const result = await createAuditJob(
       {
-        ownerId: "11111111-1111-1111-1111-111111111111",
+        ownerId: null,
         filename: "My Song.wav",
         mimeType: "audio/wav",
         bytes: new Uint8Array([1, 2, 3]),
@@ -17,23 +17,19 @@ describe("createAuditJob", () => {
         },
         createJob: async (input) => {
           calls.push("job");
-          expect(input.ownerId).toBe("11111111-1111-1111-1111-111111111111");
+          expect(input.ownerId).toBeNull();
           expect(input.sha256).toBe("039058c6f2c0cb492c533b0a4d14ef77cc0f78abccced5287d84a1a2011cfb81");
           return "job-123";
         },
         createCatalogJob: async () => "catalog-job",
         uploadMaster: async (path) => {
           calls.push("upload");
-          expect(path).toBe(
-            "11111111-1111-1111-1111-111111111111/job-123/My Song.wav",
-          );
+          expect(path).toBe("anonymous/job-123/My Song.wav");
         },
         setSourcePath: async (jobId, path) => {
           calls.push("path");
           expect(jobId).toBe("job-123");
-          expect(path).toBe(
-            "11111111-1111-1111-1111-111111111111/job-123/My Song.wav",
-          );
+          expect(path).toBe("anonymous/job-123/My Song.wav");
         },
         deleteMaster: async () => {
           calls.push("delete");
@@ -43,11 +39,10 @@ describe("createAuditJob", () => {
 
     expect(result).toEqual({
       jobId: "job-123",
-      sourceAudioPath:
-        "11111111-1111-1111-1111-111111111111/job-123/My Song.wav",
+      sourceAudioPath: "anonymous/job-123/My Song.wav",
       sha256: expect.any(String),
     });
-    expect(calls).toEqual(["profile", "job", "upload", "path"]);
+    expect(calls).toEqual(["job", "upload", "path"]);
   });
 
   it("cleans up the database job and uploaded master when storage upload fails", async () => {
@@ -55,7 +50,7 @@ describe("createAuditJob", () => {
     await expect(
       createAuditJob(
         {
-          ownerId: "11111111-1111-1111-1111-111111111111",
+          ownerId: null,
           filename: "master.wav",
           mimeType: "audio/wav",
           bytes: new Uint8Array([1]),
@@ -78,15 +73,16 @@ describe("createAuditJob", () => {
       ),
     ).rejects.toThrow("storage unavailable");
 
-    expect(calls).toEqual(["profile", "job", "upload", "delete-master", "delete-job"]);
+    expect(calls).toEqual(["job", "upload", "delete-master", "delete-job"]);
   });
+
   it("cleans up the uploaded master when finalizing the job fails", async () => {
     const calls: string[] = [];
 
     await expect(
       createAuditJob(
         {
-          ownerId: "11111111-1111-1111-1111-111111111111",
+          ownerId: null,
           filename: "master.wav",
           mimeType: "audio/wav",
           bytes: new Uint8Array([1]),
@@ -106,7 +102,6 @@ describe("createAuditJob", () => {
       ),
     ).rejects.toThrow("database unavailable");
 
-    expect(calls).toEqual(["profile", "upload", "path", "delete-master", "delete-job"]);
+    expect(calls).toEqual(["job", "upload", "path", "delete-master", "delete-job"]);
   });
-
 });
