@@ -10,6 +10,7 @@ const store = {
   getAuditStatus: async () => ({
     jobId: "job-1",
     status: "completed" as const,
+    currentStepIndex: 4,
     full: { available: true, version: 1 },
   }),
   getAuditReport: async () => ({
@@ -30,6 +31,24 @@ describe("authentication-disabled API surface", () => {
     const response = await app.inject({ method: "GET", url: "/v1/auth/config" });
 
     expect(response.statusCode).toBe(404);
+    await app.close();
+  });
+
+  it("returns the live evidence-chain step with audit status", async () => {
+    const app = buildServer({
+      createJobDependencies: () => { throw new Error("not used"); },
+      getAuditStatus: store.getAuditStatus,
+      getAuditReport: store.getAuditReport,
+    } as any);
+
+    const response = await app.inject({ method: "GET", url: "/v1/audits/job-1" });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({
+      jobId: "job-1",
+      status: "completed",
+      currentStepIndex: 4,
+    });
     await app.close();
   });
 });
