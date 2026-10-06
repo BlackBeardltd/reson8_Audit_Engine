@@ -184,8 +184,8 @@ describe("processAuditJob", () => {
       },
     });
     expect(reportInputs[1]).toMatchObject({
-      artist: "Spotify Artist",
-      title: "Spotify Title",
+      artist: "TIDAL Artist",
+      title: "TIDAL Title",
       album: "AudD Album",
     });
   });
