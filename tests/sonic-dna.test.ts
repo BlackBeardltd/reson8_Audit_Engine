@@ -2,6 +2,19 @@ import { describe, expect, it } from "vitest";
 import { analyzePcm, classifyGenreFromBpm, estimateTempo } from "../src/audio/sonic-dna.js";
 
 describe("Sonic DNA", () => {
+  it("maps DFT bins to their physical frequencies", () => {
+    const sampleRate = 8000;
+    const frequencyHz = 440;
+    const samples = Float32Array.from({ length: sampleRate }, (_, i) =>
+      Math.sin((2 * Math.PI * frequencyHz * i) / sampleRate),
+    );
+
+    const result = analyzePcm(samples, sampleRate);
+
+    expect(result.spectralCentroidHz).toBeGreaterThan(400);
+    expect(result.spectralCentroidHz).toBeLessThan(500);
+  });
+
   it("measures non-zero energy and spectral features from real PCM samples", () => {
     const sampleRate = 8000;
     const samples = Float32Array.from({ length: sampleRate }, (_, i) =>
