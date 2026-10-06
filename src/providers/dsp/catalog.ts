@@ -57,8 +57,10 @@ async function tidal(u:URL){
     try {
       const spotifyClient = new SpotifyClient();
       const spotifyTrack = await spotifyClient.getTrackByIsrc(metadata.isrc);
+      if (!spotifyTrack) return metadata;
+
       const artistId = (
-        spotifyTrack?.artists as Array<Record<string, unknown>> | undefined
+        spotifyTrack.artists as Array<Record<string, unknown>> | undefined
       )?.[0]?.id;
 
       if (typeof artistId === "string" && artistId) {
