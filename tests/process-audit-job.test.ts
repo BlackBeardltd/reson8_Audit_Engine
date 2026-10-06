@@ -118,7 +118,7 @@ describe("processAuditJob", () => {
         upc: null,
         label: null,
         genre: null,
-        catalogPopularity: 61,
+        catalogPopularity: 0.61,
         artworkUrl: null,
         previewUrl: "https://example.com/preview.mp3",
         externalIds: { tidal: "tidal-123" },
