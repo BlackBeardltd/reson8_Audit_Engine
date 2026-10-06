@@ -1,0 +1,29 @@
+name: tidal-playlist-fix-verification
+on:
+  push:
+    branches:
+      - fix/tidal-playlist-validation
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: npm install
+      - name: Five focused regression runs
+        run: |
+          for i in 1 2 3 4 5; do
+            npm test -- --run tests/dsp-catalog.test.ts
+          done
+      - name: Five full suite runs
+        run: |
+          for i in 1 2 3 4 5; do
+            npm test
+          done
+      - name: Five build runs
+        run: |
+          for i in 1 2 3 4 5; do
+            npm run build
+          done
