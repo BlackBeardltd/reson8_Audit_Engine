@@ -29,34 +29,13 @@ describe("audit report retrieval", () => {
     expect(response.json()).toEqual({
       jobId: "job-123",
       status: "completed",
-      sample: { available: true, version: 1 },
-      full: { available: true, version: 1, locked: false },
+      full: { available: true, version: 1 },
     });
 
     await app.close();
   });
 
-  it("lets the public download the generated sample report", async () => {
-    const app = buildServer(store({
-      getAuditReport: async (jobId: string, tier: string, ownerId?: string) => {
-        expect(jobId).toBe("job-123");
-        expect(tier).toBe("sample");
-        expect(ownerId).toBeUndefined();
-        return { bytes: SAMPLE_PDF, contentType: "application/pdf", filename: "reson8-audit-job-123-sample-v1.pdf" };
-      },
-    }));
-
-    const response = await app.inject({ method: "GET", url: "/v1/audits/job-123/reports/sample" });
-
-    expect(response.statusCode).toBe(200);
-    expect(response.headers["content-type"]).toContain("application/pdf");
-    expect(response.headers["content-disposition"]).toContain("reson8-audit-job-123-sample-v1.pdf");
-    expect(response.body).toBe(SAMPLE_PDF.toString());
-
-    await app.close();
-  });
-
-  it("lets an anonymous visitor download the generated full report", async () => {
+  it("lets an anonymous visitor download the generated full report without payment or authentication", async () => {
     const app = buildServer(store({
       getAuditReport: async (jobId: string, tier: string, ownerId?: string) => {
         expect(jobId).toBe("job-123");
