@@ -21,10 +21,7 @@ function sanitize(value: unknown): unknown {
     const output: Record<string, unknown> = {};
 
     for (const [key, entry] of Object.entries(value)) {
-      if (SENSITIVE_KEYS.has(key)) {
-        output[key] = "[redacted]";
-        continue;
-      }
+      if (SENSITIVE_KEYS.has(key)) continue;
 
       if (
         key === "audio" ||
