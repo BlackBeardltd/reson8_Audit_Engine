@@ -12,10 +12,9 @@ export interface AuditStore {
     jobId: string;
     status: "queued" | "processing" | "completed" | "failed";
     errorMessage?: string | null;
-    sample: { available: boolean; version?: number };
-    full: { available: boolean; version?: number; locked: boolean };
+    full: { available: boolean; version?: number };
   }>;
-  getAuditReport(jobId: string, tier: "sample" | "full", ownerId?: string): Promise<{
+  getAuditReport(jobId: string, tier: "full", ownerId?: string): Promise<{
     bytes: Uint8Array;
     contentType: string;
     filename: string;
@@ -73,7 +72,7 @@ export function buildServer(store: AuditStore = createSupabaseAuditStore()) {
       if (!allowPublicRequest(request.ip)) {
         return reply.code(429).send({
           error: "PUBLIC_RATE_LIMITED",
-          message: "Public sample limit reached. Please try again later.",
+          message: "Public audit limit reached. Please try again later.",
         });
       }
 
@@ -130,12 +129,9 @@ export function buildServer(store: AuditStore = createSupabaseAuditStore()) {
   });
 
   app.get<{
-    Params: { jobId: string; tier: "sample" | "full" };
-  }>("/v1/audits/:jobId/reports/:tier", async (request, reply) => {
-    const tier = request.params.tier;
-    if (tier !== "sample" && tier !== "full") {
-      return reply.code(404).send({ error: "REPORT_NOT_FOUND", message: "Report not found" });
-    }
+    Params: { jobId: string };
+  }>("/v1/audits/:jobId/reports/full", async (request, reply) => {
+    const tier = "full" as const;
 
     try {
       const report = await store.getAuditReport(request.params.jobId, tier);
@@ -145,10 +141,7 @@ export function buildServer(store: AuditStore = createSupabaseAuditStore()) {
         .send(Buffer.from(report.bytes));
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unable to retrieve report";
-      if (message === "Full report access denied") {
-        return reply.code(403).send({ error: "FORBIDDEN", message });
-      }
-      if (message === "Audit job not found" || message === "Report not found") {
+       if (message === "Audit job not found" || message === "Report not found") {
         return reply.code(404).send({ error: "REPORT_NOT_FOUND", message: "Report not found" });
       }
       request.log.error({ err: error }, "audit report retrieval failed");
