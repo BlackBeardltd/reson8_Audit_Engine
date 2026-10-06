@@ -12,8 +12,6 @@ import { sha256 } from "../jobs/content-hash.js";
 export interface SupabaseAuditStore {
   admin: SupabaseClient;
   createJobDependencies(): CreateAuditJobDependencies;
-  authenticate(accessToken: string): Promise<string>;
-  resolvePublicOwnerId(): Promise<string>;
   claimNextQueuedJob(): Promise<AuditJobRecord | null>;
   markProcessing(jobId: string): Promise<void>;
   downloadMaster(path: string): Promise<Uint8Array>;
@@ -49,16 +47,6 @@ export function createSupabaseAuditStore(
   const admin = createClient(url, secretKey, {
     auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false },
   });
-
-  let publicOwnerPromise: Promise<string> | null = null;
-
-  const ensureProfile = async (ownerId: string) => {
-    const { error } = await admin
-      .from("profiles")
-      .upsert({ id: ownerId }, { onConflict: "id", ignoreDuplicates: true });
-
-    if (error) throw new Error(`Unable to initialize profile: ${error.message}`);
-  };
 
   const event = async (jobId: string, eventType: string, status: string, message?: string, payload: Record<string, unknown> = {}) => {
     const { error } = await admin.from("audit_events").insert({ audit_job_id: jobId, event_type: eventType, status, message, payload });
@@ -103,15 +91,8 @@ export function createSupabaseAuditStore(
 
   return {
     admin,
-    async authenticate(accessToken) {
-      const { data, error } = await admin.auth.getUser(accessToken);
-      if (error || !data.user) throw new Error("Invalid authentication token");
-      return data.user.id;
-    },
-    resolvePublicOwnerId,
     createJobDependencies() {
       return {
-        ensureProfile,
         createJob: async (input) => {
           const { data, error } = await admin.from("audit_jobs").insert({
             owner_id: input.ownerId, status: "queued", original_filename: input.filename,
@@ -164,7 +145,7 @@ export function createSupabaseAuditStore(
       await event(claimed.id, "processing_claimed", "processing");
       return {
         id: claimed.id as string,
-        ownerId: claimed.owner_id as string,
+        ownerId: claimed.owner_id as string | null,
         sourceAudioPath: claimed.source_audio_path as string | null,
         mimeType: claimed.mime_type as string | null,
         sourceType: (claimed.source_type ?? "master") as "master" | "dsp_link",
@@ -277,7 +258,7 @@ export function createSupabaseAuditStore(
         audit_job_id: jobId,
         tier,
         version,
-        access_status: tier === "sample" ? "available" : "locked",
+        access_status: "available",
         storage_path: storagePath,
         sha256: digest,
         content_type: "application/pdf",
@@ -290,7 +271,7 @@ export function createSupabaseAuditStore(
       await event(jobId, "report_generated", "completed", undefined, {
         tier,
         version,
-        accessStatus: tier === "sample" ? "available" : "locked",
+        accessStatus: "available",
         sha256: digest,
       });
     },
@@ -343,10 +324,6 @@ export function createSupabaseAuditStore(
       if (jobError) throw new Error(`Unable to read audit job: ${jobError.message}`);
       if (!job) throw new Error("Audit job not found");
 
-      if (tier === "full" && job.owner_id !== ownerId) {
-        throw new Error("Full report access denied");
-      }
-
       const { data: report, error: reportError } = await admin
         .from("audit_reports")
         .select("version,storage_path,content_type,access_status")
@@ -357,11 +334,6 @@ export function createSupabaseAuditStore(
         .maybeSingle();
       if (reportError) throw new Error(`Unable to read audit report: ${reportError.message}`);
       if (!report) throw new Error("Report not found");
-      if (tier === "full" && report.access_status === "locked") {
-        // Owner access is server-authorized above; locked status remains intact for external prospects.
-        if (job.owner_id !== ownerId) throw new Error("Full report access denied");
-      }
-
       const { data, error: downloadError } = await admin.storage
         .from("audit-reports")
         .download(report.storage_path);
