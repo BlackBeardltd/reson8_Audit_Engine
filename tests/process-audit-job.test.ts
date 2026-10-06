@@ -101,17 +101,17 @@ describe("processAuditJob", () => {
         sourceAudioPath: null,
         mimeType: null,
         sourceType: "dsp_link" as const,
-        catalogUrl: "https://open.spotify.com/track/spotify-123",
+        catalogUrl: "https://tidal.com/browse/track/tidal-123",
         status: "queued" as const,
       }),
       markProcessing: async () => {},
       collectCatalogMetadata: async () => ({
-        platform: "spotify" as const,
-        sourceUrl: "https://open.spotify.com/track/spotify-123",
-        canonicalUrl: "https://open.spotify.com/track/spotify-123",
-        catalogId: "spotify-123",
-        artist: "Spotify Artist",
-        title: "Spotify Title",
+        platform: "tidal" as const,
+        sourceUrl: "https://tidal.com/browse/track/tidal-123",
+        canonicalUrl: "https://tidal.com/browse/track/tidal-123",
+        catalogId: "tidal-123",
+        artist: "TIDAL Artist",
+        title: "TIDAL Title",
         album: null,
         releaseDate: null,
         isrc: null,
@@ -121,7 +121,7 @@ describe("processAuditJob", () => {
         catalogPopularity: 61,
         artworkUrl: null,
         previewUrl: "https://example.com/preview.mp3",
-        externalIds: { spotify: "spotify-123" },
+        externalIds: { tidal: "tidal-123" },
         raw: {},
         evidenceStatus: "verified" as const,
         sonicProfile: {
@@ -171,15 +171,15 @@ describe("processAuditJob", () => {
 
     expect(result.status).toBe("completed");
     expect(assessmentInputs[0]).toMatchObject({
-      artist: "Spotify Artist",
-      title: "Spotify Title",
+      artist: "TIDAL Artist",
+      title: "TIDAL Title",
       album: "AudD Album",
       isrc: "USABC1234567",
       identity: {
         artist: "Spotify Artist",
         title: "Spotify Title",
         album: "AudD Album",
-        sourceProviders: ["spotify", "audd"],
+        sourceProviders: ["tidal", "audd"],
       },
     });
     expect(reportInputs[1]).toMatchObject({
