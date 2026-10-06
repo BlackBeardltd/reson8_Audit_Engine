@@ -34,11 +34,27 @@ function idFromPath(u:URL,p:DspPlatform){const a=u.pathname.split("/").filter(Bo
 function base(p:DspPlatform,u:URL):CatalogMetadata{return{platform:p,sourceUrl:u.toString(),canonicalUrl:u.toString(),catalogId:idFromPath(u,p),artist:null,title:null,album:null,releaseDate:null,isrc:null,upc:null,catalogPopularity:null,catalogPopularityScale:null,label:null,genre:null,artworkUrl:null,previewUrl:null,externalIds:{},raw:{},evidenceStatus:"partial",sonicProfile:null};}
 
 async function spotify(u:URL){
-  const id=idFromPath(u,"spotify");
-  if(!id) throw new Error("Spotify track ID could not be detected");
-  const client=new SpotifyClient();
-  const track=await client.getTrack(id);
-  return normalizeSpotifyTrack(u.toString(), track);
+  const metadata = base("spotify", u);
+  const id = metadata.catalogId;
+  if (!id) throw new Error("Spotify track ID could not be detected");
+
+  try {
+    const client = new SpotifyClient();
+    return await normalizeSpotifyTrack(u.toString(), await client.getTrack(id));
+  } catch (error) {
+    // Spotify is optional enrichment for the audit pipeline. A denied or
+    // unavailable Spotify API must never prevent the audit from completing.
+    const message = error instanceof Error ? error.message : "Unknown Spotify enrichment error";
+    return {
+      ...metadata,
+      raw: {
+        spotifyEnrichment: {
+          status: "unavailable",
+          error: message,
+        },
+      },
+    };
+  }
 }
 
 async function apple(u:URL){const m=base("apple_music",u);if(!m.catalogId)throw new Error("Apple Music track ID could not be detected");const r=await fetch("https://itunes.apple.com/lookup?id="+encodeURIComponent(m.catalogId)+"&entity=song");if(!r.ok)throw new Error("Apple Music metadata request failed with HTTP "+r.status);const d=await r.json() as {results?:Array<Record<string,unknown>>};const x=d.results?.find(v=>v.kind==="song")??d.results?.[0];if(!x)throw new Error("Apple Music track was not found");m.canonicalUrl=String(x.trackViewUrl??u);m.artist=String(x.artistName??"")||null;m.title=String(x.trackName??"")||null;m.album=String(x.collectionName??"")||null;m.releaseDate=String(x.releaseDate??"").slice(0,10)||null;m.genre=String(x.primaryGenreName??"")||null;m.artworkUrl=String(x.artworkUrl100??"")||null;m.previewUrl=String(x.previewUrl??"")||null;m.isrc=String(x.isrc??"")||null;if(x.trackId)m.externalIds.apple_music=String(x.trackId);m.raw=x;m.evidenceStatus=m.title&&m.artist?"verified":"partial";return m;}
