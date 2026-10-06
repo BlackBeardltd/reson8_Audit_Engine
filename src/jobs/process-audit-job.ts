@@ -237,9 +237,10 @@ export async function processAuditJob(
             reconciliation: reconciliationEvidence(reconciliation),
           }
         : catalogEvidence(metadata, identity, reconciliation);
-    const assessment = await deps.generateAssessment({
+      const sonicDna = catalogSonicDna(metadata);
+      const assessment = await deps.generateAssessment({
         evidence,
-        sonicDna: null,
+        sonicDna,
         catalogMetadata: catalogEvidence(metadata, identity),
       });
     await deps.saveAssessment(jobId, assessment);
