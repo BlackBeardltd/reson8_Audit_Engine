@@ -246,13 +246,11 @@ export async function processAuditJob(
       await deps.saveAssessment(jobId, assessment);
 
       const generatedAt = new Date().toISOString();
-      for (const tier of ["sample", "full"] as const) {
-        const pdf = await deps.generateReport(
-          { auditId: jobId, generatedAt, evidence, sonicDna, assessment },
-          tier,
-        );
-        await deps.saveReport(jobId, tier, pdf);
-      }
+      const pdf = await deps.generateReport(
+        { auditId: jobId, generatedAt, evidence, sonicDna, assessment },
+        "full",
+      );
+      await deps.saveReport(jobId, "full", pdf);
 
       await deps.markCompleted(jobId);
       return { status: "completed" };
@@ -293,13 +291,11 @@ export async function processAuditJob(
     });
     await deps.saveAssessment(jobId, assessment);
     const generatedAt = new Date().toISOString();
-    for (const tier of ["sample", "full"] as const) {
-      const pdf = await deps.generateReport(
-        { auditId: jobId, generatedAt, evidence, sonicDna, assessment },
-        tier,
-      );
-      await deps.saveReport(jobId, tier, pdf);
-    }
+    const pdf = await deps.generateReport(
+      { auditId: jobId, generatedAt, evidence, sonicDna, assessment },
+      "full",
+    );
+    await deps.saveReport(jobId, "full", pdf);
 
     await deps.markCompleted(jobId);
     return { status: "completed" };
