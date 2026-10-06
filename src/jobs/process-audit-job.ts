@@ -148,6 +148,30 @@ function catalogEvidence(metadata: CatalogMetadata, identity: TrackIdentity, rec
     canonicalUrl: metadata.canonicalUrl,
     source: metadata.platform,
     identity: identityEvidence(identity),
+    catalogPopularity: metadata.catalogPopularity,
+    sonicProfile: metadata.sonicProfile,
+  };
+}
+
+function catalogSonicDna(metadata: CatalogMetadata): Record<string, unknown> | null {
+  if (!metadata.sonicProfile) return null;
+  return {
+    provenance: metadata.sonicProfile.provenance,
+    sampleRate: null,
+    channels: null,
+    durationSeconds: null,
+    bpm: metadata.sonicProfile.bpm,
+    key: metadata.sonicProfile.key,
+    mode: metadata.sonicProfile.mode,
+    loudnessLufs: null,
+    rmsEnergy: null,
+    dynamicRangeDb: null,
+    spectralCentroidHz: null,
+    spectralBandwidthHz: null,
+    spectralRolloffHz: null,
+    zeroCrossingRate: null,
+    moodTags: metadata.sonicProfile.moodTags,
+    genreContext: metadata.sonicProfile.genreContext,
   };
 }
 
@@ -221,7 +245,7 @@ export async function processAuditJob(
       const generatedAt = new Date().toISOString();
       for (const tier of ["sample", "full"] as const) {
       const pdf = await deps.generateReport(
-          { auditId: jobId, generatedAt, evidence, sonicDna: null, assessment },
+          { auditId: jobId, generatedAt, evidence, sonicDna, assessment },
           tier,
         );
       await deps.saveReport(jobId, tier, pdf);
