@@ -124,6 +124,22 @@ export function buildServer(store: AuditStore = createSupabaseAuditStore()) {
     }
   });
 
+  app.get("/v1/auth/config", async (_request, reply) => {
+    const supabaseUrl = process.env.SUPABASE_URL?.trim();
+    const supabasePublishableKey = process.env.SUPABASE_PUBLISHABLE_KEY?.trim();
+
+    if (!supabaseUrl || !supabasePublishableKey) {
+      return reply.code(503).send({
+        error: "AUTH_CONFIG_UNAVAILABLE",
+        message: "Browser authentication is not configured.",
+      });
+    }
+
+    return reply
+      .header("cache-control", "no-store")
+      .send({ supabaseUrl, supabasePublishableKey });
+  });
+
   app.get("/health", async () => ({
     status: "ok",
     service: "reson8-audit-engine",
