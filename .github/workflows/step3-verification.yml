@@ -3,7 +3,7 @@ name: step3-verification
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches: [main, "fix/step3-tidal-sonic-metadata"]
 
 jobs:
   verify:
@@ -25,3 +25,9 @@ jobs:
             echo "MetadataEngine verification cycle $i/5"
             npm test -- tests/metadata-engine.test.ts
           done
+      - run: |
+          for i in 1 2 3 4 5; do
+            echo "TIDAL deep-ingestion verification cycle $i/5"
+            npm test -- tests/tidal-deep-ingestion.test.ts
+          done
+      - run: npm test
