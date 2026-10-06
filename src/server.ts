@@ -67,7 +67,6 @@ export function buildServer(store: AuditStore = createSupabaseAuditStore()) {
   });
 
   app.post<{
-    Headers: { authorization?: string; };
     Body: { url?: string };
   }>("/v1/audits/catalog", async (request, reply) => {
     try {
@@ -132,7 +131,6 @@ export function buildServer(store: AuditStore = createSupabaseAuditStore()) {
 
   app.get<{
     Params: { jobId: string; tier: "sample" | "full" };
-    Headers: { authorization?: string };
   }>("/v1/audits/:jobId/reports/:tier", async (request, reply) => {
     const tier = request.params.tier;
     if (tier !== "sample" && tier !== "full") {
@@ -147,9 +145,6 @@ export function buildServer(store: AuditStore = createSupabaseAuditStore()) {
         .send(Buffer.from(report.bytes));
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unable to retrieve report";
-      if (message === "Authorization token is required" || message === "Invalid authentication token") {
-        return reply.code(401).send({ error: "UNAUTHORIZED", message });
-      }
       if (message === "Full report access denied") {
         return reply.code(403).send({ error: "FORBIDDEN", message });
       }
