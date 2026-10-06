@@ -53,41 +53,6 @@ export function createSupabaseAuditStore(
     if (error) throw new Error(`Unable to write audit event: ${error.message}`);
   };
 
-  const resolvePublicOwnerId = async (): Promise<string> => {
-    if (!publicOwnerPromise) {
-      publicOwnerPromise = (async () => {
-        const email = process.env.PUBLIC_AUDIT_OWNER_EMAIL ?? "audit-public@reson8.local";
-
-        const { data: listed, error: listError } = await admin.auth.admin.listUsers({
-          page: 1,
-          perPage: 1000,
-        });
-
-        if (listError) {
-          throw new Error(`Unable to resolve public audit owner: ${listError.message}`);
-        }
-
-        const existing = listed.users.find((user) => user.email?.toLowerCase() === email.toLowerCase());
-        const user = existing
-          ? existing
-          : (await admin.auth.admin.createUser({
-              email,
-              email_confirm: true,
-              user_metadata: { role: "audit_public_intake" },
-            })).data.user;
-
-        if (!user) throw new Error("Unable to create public audit owner");
-
-        await ensureProfile(user.id);
-        return user.id;
-      })().catch((error) => {
-        publicOwnerPromise = null;
-        throw error;
-      });
-    }
-
-    return publicOwnerPromise;
-  };
 
   return {
     admin,
