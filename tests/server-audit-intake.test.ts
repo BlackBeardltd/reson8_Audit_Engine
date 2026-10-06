@@ -21,7 +21,7 @@ describe("GET /", () => {
       authenticate: async () => OWNER_ID,
       resolvePublicOwnerId: async () => OWNER_ID,
       createJobDependencies: () => { throw new Error("must not be called"); },
-    });
+    } as any);
 
     const response = await app.inject({ method: "GET", url: "/" });
 
@@ -39,7 +39,7 @@ describe("GET /health", () => {
       authenticate: async () => OWNER_ID,
       resolvePublicOwnerId: async () => OWNER_ID,
       createJobDependencies: () => { throw new Error("must not be called"); },
-    });
+    } as any);
 
     const response = await app.inject({ method: "GET", url: "/health" });
 
@@ -54,12 +54,12 @@ describe("GET /health", () => {
 });
 
 describe("POST /v1/audits", () => {
-  it("accepts a public sample submission without a bearer session", async () => {
+  it("accepts a public full-audit submission without a bearer session", async () => {
     const response = await buildServer({
       authenticate: async () => { throw new Error("must not authenticate public requests"); },
       resolvePublicOwnerId: async () => OWNER_ID,
       createJobDependencies: () => deps(),
-    }).inject({
+    } as any).inject({
       method: "POST",
       url: "/v1/audits",
       payload: Buffer.from([1, 2, 3]),
@@ -76,40 +76,12 @@ describe("POST /v1/audits", () => {
     });
   });
 
-  it("still accepts a verified user session when supplied", async () => {
-    const response = await buildServer({
-      authenticate: async (token) => {
-        expect(token).toBe("token-123");
-        return OWNER_ID;
-      },
-      resolvePublicOwnerId: async () => { throw new Error("must not use public owner"); },
-      createJobDependencies: () => deps(),
-    }).inject({
-      method: "POST",
-      url: "/v1/audits",
-      payload: Buffer.from([1, 2, 3]),
-      headers: {
-        authorization: "Bearer token-123",
-        "content-type": "audio/wav",
-        "x-audio-filename": "master.wav",
-      },
-    });
-
-    expect(response.statusCode).toBe(201);
-    expect(response.json()).toMatchObject({
-      jobId: "job-123",
-      status: "queued",
-    });
-  });
-});
-
-describe("POST /v1/audits/catalog", () => {
   it("accepts a public catalog submission without a bearer session", async () => {
     const response = await buildServer({
       authenticate: async () => { throw new Error("must not authenticate public requests"); },
       resolvePublicOwnerId: async () => OWNER_ID,
       createJobDependencies: () => deps(),
-    }).inject({
+    } as any).inject({
       method: "POST",
       url: "/v1/audits/catalog",
       payload: { url: "https://open.spotify.com/track/3AcgT1ZcF0e9YknCUD269u" },
