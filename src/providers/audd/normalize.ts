@@ -15,7 +15,15 @@ export interface NormalizedAuddRecognition {
   musicbrainzId?: string;
 }
 
-export interface UnmatchedAuddRecognition { matched: false; }
+export interface UnmatchedAuddRecognition {
+  matched: false;
+  artist?: undefined;
+  title?: undefined;
+  album?: undefined;
+  releaseDate?: undefined;
+  label?: undefined;
+  isrc?: undefined;
+}
 
 export type AuditRecognition = NormalizedAuddRecognition | UnmatchedAuddRecognition;
 
